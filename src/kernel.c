@@ -10,4 +10,7 @@ void kernel_setup(void) {
   while (true)
     b += 1;
   (void)b;
+  load_gdt(&_gdt_gdtr);
+  while (true)
+    ;
 }
