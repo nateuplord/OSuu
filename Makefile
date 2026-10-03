@@ -32,6 +32,9 @@ kernel:
 	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/framebuffer.c -o 						$(OUTPUT_FOLDER)/framebuffer.o
 	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/portio.c -o        					$(OUTPUT_FOLDER)/portio.o
 	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/stdlib/string.c -o 					$(OUTPUT_FOLDER)/string.o
+	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/idt.c -o                     $(OUTPUT_FOLDER)/idt.o
+	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/interrupt.c -o               $(OUTPUT_FOLDER)/interrupt.o
+	@$(ASM) $(ASM_FLAGS) $(SOURCE_FOLDER)/intsetup.s -o             $(OUTPUT_FOLDER)/intsetup.o
 	@$(LINK) $(LINK_FLAGS) $(OUTPUT_FOLDER)/*.o -o                  $(OUTPUT_FOLDER)/kernel
 	@echo Linking object files and generating ELF32...
 	@rm -f *.o
