@@ -21,7 +21,12 @@ int shell_execute(char **args);
 int shell_launch(char **args);
 
 int shell_cd(char **args);
-int shell_help(char **args);
+int shell_ls(char **args);
+int shell_mkdir(char **args);
+int shell_cat(char **args);
+int shell_cp(char **args);
+int shell_mv(char **args);
+int shell_find(char **args);
 int shell_exit(char **args);
 
 #endif
