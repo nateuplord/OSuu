@@ -1,43 +1,51 @@
 # Compiler & linker
-ASM           	= nasm
-LINK           	= ld
-CC            	= gcc
+ASM  = nasm
+LINK = ld
+CC   = gcc
 
 # Directory
-SOURCE_FOLDER 	= src
-OUTPUT_FOLDER 	= bin
-ISO_NAME      	= OSuu
+SOURCE_FOLDER = src
+HEADER_FOLDER = header
+OUTPUT_FOLDER = bin
+ISO_NAME      = OSuu
 
 # Flags
-WARNING_CFLAG	= -Wall -Wextra -Werror
-DEBUG_CFLAG		= -fshort-wchar -g
-STRIP_CFLAG		= -nostdlib -fno-stack-protector -nostartfiles -nodefaultlibs -ffreestanding
-C_FLAGS			= $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -m32 -c -I$(SOURCE_FOLDER)
-ASM_FLAGS		= -f elf32 -g -F dwarf
-LINK_FLAGS		= -T $(SOURCE_FOLDER)/linker.ld -melf_i386
-ISO_FLAGS		= -R -b boot/grub/grub1 -no-emul-boot -boot-load-size 4 -A os -input-charset utf8 -quiet -boot-info-table
+WARNING_CFLAG = -Wall -Wextra -Werror
+DEBUG_CFLAG   = -fshort-wchar -g
+STRIP_CFLAG   = -nostdlib -fno-stack-protector -nostartfiles -nodefaultlibs -ffreestanding
+C_FLAGS       = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -I$(HEADER_FOLDER) -m32 -c
+ASM_FLAGS     = -f elf32 -g -F dwarf
+LINK_FLAGS    = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
+ISO_FLAGS     = -R -b boot/grub/grub1 -no-emul-boot -boot-load-size 4 -A os -input-charset utf8 -quiet -boot-info-table
+
+# Auto-discover sources
+C_SRC   := $(shell find $(SOURCE_FOLDER) -name '*.c')
+ASM_SRC := $(shell find $(SOURCE_FOLDER) -name '*.s')
+OBJS    := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
+           $(ASM_SRC:$(SOURCE_FOLDER)/%.s=$(OUTPUT_FOLDER)/%.o)
+
+.PHONY: run clean build kernel iso
 
 run: clean build
 	@qemu-system-i386 -s -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 
 clean:
-	@rm -rf *.o *.iso $(OUTPUT_FOLDER)/*
+	@rm -rf $(OUTPUT_FOLDER)/*
 
 build: iso
 
-kernel:
-	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/gdt.c -o                     $(OUTPUT_FOLDER)/gdt.o
-	@$(ASM) $(ASM_FLAGS) $(SOURCE_FOLDER)/kernel-entrypoint.s -o    $(OUTPUT_FOLDER)/kernel-entrypoint.o
-	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/kernel.c -o                  $(OUTPUT_FOLDER)/kernel.o
-	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/framebuffer.c -o 						$(OUTPUT_FOLDER)/framebuffer.o
-	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/portio.c -o        					$(OUTPUT_FOLDER)/portio.o
-	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/stdlib/string.c -o 					$(OUTPUT_FOLDER)/string.o
-	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/idt.c -o                     $(OUTPUT_FOLDER)/idt.o
-	@$(CC) $(C_FLAGS) $(SOURCE_FOLDER)/interrupt.c -o               $(OUTPUT_FOLDER)/interrupt.o
-	@$(ASM) $(ASM_FLAGS) $(SOURCE_FOLDER)/intsetup.s -o             $(OUTPUT_FOLDER)/intsetup.o
-	@$(LINK) $(LINK_FLAGS) $(OUTPUT_FOLDER)/*.o -o                  $(OUTPUT_FOLDER)/kernel
+# Pattern rules
+$(OUTPUT_FOLDER)/%.o: $(SOURCE_FOLDER)/%.c
+	@mkdir -p $(dir $@)
+	@$(CC) $(C_FLAGS) $< -o $@
+
+$(OUTPUT_FOLDER)/%.o: $(SOURCE_FOLDER)/%.s
+	@mkdir -p $(dir $@)
+	@$(ASM) $(ASM_FLAGS) $< -o $@
+
+kernel: $(OBJS)
+	@$(LINK) $(LINK_FLAGS) $(OBJS) -o $(OUTPUT_FOLDER)/kernel
 	@echo Linking object files and generating ELF32...
-	@rm -f *.o
 
 iso: kernel
 	@mkdir -p                       $(OUTPUT_FOLDER)/iso/boot/grub
@@ -45,4 +53,6 @@ iso: kernel
 	@cp other/grub1                 $(OUTPUT_FOLDER)/iso/boot/grub/
 	@cp $(SOURCE_FOLDER)/menu.lst   $(OUTPUT_FOLDER)/iso/boot/grub/
 	@genisoimage $(ISO_FLAGS) -o    $(OUTPUT_FOLDER)/$(ISO_NAME).iso $(OUTPUT_FOLDER)/iso
-	@rm -r $(OUTPUT_FOLDER)/iso/
+	@rm -r                          $(OUTPUT_FOLDER)/iso/
+
+-include $(OBJS:.o=.d)

@@ -1,4 +1,4 @@
-#include "header/cpu/idt.h"
+#include "cpu/idt.h"
 #include <stdint.h>
 
 struct InterruptDescriptorTable interrupt_descriptor_table = {.table = {

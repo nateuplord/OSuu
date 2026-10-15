@@ -37,22 +37,22 @@ extern struct GDTR _gdt_gdtr;
  * @param base_high    8-bit higher-bit base address (bits 31:24)
  */
 struct SegmentDescriptor {
-    // First 32-bit
-    uint16_t segment_low;
-    uint16_t base_low;
-    
-    // Next 16-bit (Bit 32 to 47)
-    uint8_t base_mid: 8;
-    uint8_t type_bit: 4;
-    uint8_t non_system: 1; // S bit
-    uint8_t dpl: 2;
-    uint8_t seg_present: 1; // P bit
-    uint8_t segment_high: 4;
-    uint8_t avl: 1;
-    uint8_t code_seg: 1;    // 64 bit code segment (L bit)
-    uint8_t op_size: 1;     // DB bit
-    uint8_t granularity: 1; // G bit
-    uint8_t base_high: 8;
+  // First 32-bit
+  uint16_t segment_low;
+  uint16_t base_low;
+
+  // Next 16-bit (Bit 32 to 47)
+  uint8_t base_mid : 8;
+  uint8_t type_bit : 4;
+  uint8_t non_system : 1; // S bit
+  uint8_t dpl : 2;
+  uint8_t seg_present : 1; // P bit
+  uint8_t segment_high : 4;
+  uint8_t avl : 1;
+  uint8_t code_seg : 1;    // 64 bit code segment (L bit)
+  uint8_t op_size : 1;     // DB bit
+  uint8_t granularity : 1; // G bit
+  uint8_t base_high : 8;
 } __attribute__((packed));
 
 /**
@@ -63,7 +63,7 @@ struct SegmentDescriptor {
  * GDT_MAX_ENTRY_COUNT
  */
 struct GlobalDescriptorTable {
-    struct SegmentDescriptor table[GDT_MAX_ENTRY_COUNT];
+  struct SegmentDescriptor table[GDT_MAX_ENTRY_COUNT];
 } __attribute__((packed));
 
 /**
@@ -74,8 +74,8 @@ struct GlobalDescriptorTable {
  * @param address GDT address, GDT should already defined properly
  */
 struct GDTR {
-    uint16_t size;
-    struct GlobalDescriptorTable *address;
+  uint16_t size;
+  struct GlobalDescriptorTable *address;
 } __attribute__((packed));
 
 #endif
