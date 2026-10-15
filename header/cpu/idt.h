@@ -1,7 +1,6 @@
 #ifndef _IDT_H
 #define _IDT_H
 
-#include "cpu/gdt.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
