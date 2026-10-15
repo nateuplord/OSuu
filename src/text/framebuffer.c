@@ -1,6 +1,6 @@
 #include "text/framebuffer.h"
 #include "cpu/portio.h"
-#include "stdlib/string.h"
+// #include "stdlib/string.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
