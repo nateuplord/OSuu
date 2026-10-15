@@ -1,6 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
-// #include "header/stdlib/string.h"
+// #include "stdlib/string.h"
 
 void *memset(void *s, int c, size_t n) {
     uint8_t *buf = (uint8_t *) s;
@@ -20,6 +20,7 @@ void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
 int memcmp(const void *s1, const void *s2, size_t n) {
     const uint8_t *buf1 = (const uint8_t *) s1;
     const uint8_t *buf2 = (const uint8_t *) s2;
+    
     for (size_t i = 0; i < n; i++) {
         if (buf1[i] < buf2[i]) return -1;
         else if (buf1[i] > buf2[i]) return 1;
@@ -30,6 +31,7 @@ int memcmp(const void *s1, const void *s2, size_t n) {
 void *memmove(void *dest, const void *src, size_t n) {
     uint8_t *dstbuf = (uint8_t *) dest;
     const uint8_t *srcbuf = (const uint8_t *) src;
+    
     if (dstbuf < srcbuf) {
         for (size_t i = 0; i < n; i++)
             dstbuf[i] = srcbuf[i];

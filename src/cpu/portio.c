@@ -1,10 +1,10 @@
-#include <stdint.h>
+#include "cpu/portio.h"
 #include <stdbool.h>
 #include <stddef.h>
-#include "cpu/portio.h"
+#include <stdint.h>
 
 /** x86 inb/outb:
- * @param dx target port 
+ * @param dx target port
  * @param al input/output byte
  */
 
