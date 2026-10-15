@@ -6,6 +6,7 @@
 
 // Some GDT Constant
 #define GDT_MAX_ENTRY_COUNT 32
+
 /**
  * As kernel SegmentDescriptor for code located at index 1 in GDT,
  * segment selector is sizeof(SegmentDescriptor) * 1 = 0x8
@@ -42,17 +43,17 @@ struct SegmentDescriptor {
     uint16_t base_low;
     
     // Next 16-bit (Bit 32 to 47)
-    uint8_t base_mid : 8;
-    uint8_t type_bit : 4;
-    uint8_t non_system : 1; // S bit
-    uint8_t dpl : 2;
-    uint8_t seg_present : 1; // P bit
-    uint8_t segment_high : 4;
-    uint8_t avl : 1;
-    uint8_t code_seg : 1;    // 64 bit code segment (L bit)
-    uint8_t op_size : 1;     // DB bit
-    uint8_t granularity : 1; // G bit
-    uint8_t base_high : 8;
+    uint8_t base_mid        : 8;
+    uint8_t type_bit        : 4;
+    uint8_t non_system      : 1;    // S bit
+    uint8_t dpl             : 2;
+    uint8_t seg_present     : 1;    // P bit
+    uint8_t segment_high    : 4;
+    uint8_t avl             : 1;
+    uint8_t code_seg        : 1;    // 64 bit code segment (L bit)
+    uint8_t op_size         : 1;    // DB bit
+    uint8_t granularity     : 1;    // G bit
+    uint8_t base_high       : 8;
 } __attribute__((packed));
 
 /**

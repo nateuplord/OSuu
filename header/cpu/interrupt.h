@@ -50,14 +50,14 @@
 #define IRQ_LPT1_SPUR    7
 
 // PIC Slave
-#define IRQ_CMOS         8
-#define IRQ_PERIPHERAL_1 9
-#define IRQ_PERIPHERAL_2 10
-#define IRQ_PERIPHERAL_3 11
-#define IRQ_MOUSE        12
-#define IRQ_FPU          13
-#define IRQ_PRIMARY_ATA  14
-#define IRQ_SECOND_ATA   15
+#define IRQ_CMOS            8
+#define IRQ_PERIPHERAL_1    9
+#define IRQ_PERIPHERAL_2    10
+#define IRQ_PERIPHERAL_3    11
+#define IRQ_MOUSE           12
+#define IRQ_FPU             13
+#define IRQ_PRIMARY_ATA     14
+#define IRQ_SECOND_ATA      15
 
 
 /**
@@ -73,16 +73,19 @@ struct CPURegister {
         uint32_t edi;
         uint32_t esi;
     } __attribute__((packed)) index;
+
     struct {
         uint32_t esp;
         uint32_t ebp;
     } __attribute__((packed)) stack;
+
     struct {
         uint32_t ebx;
         uint32_t edx;
         uint32_t ecx;
         uint32_t eax;
     } __attribute__((packed)) general;
+
     struct {
         uint32_t gs;
         uint32_t fs;
