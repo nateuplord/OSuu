@@ -6,13 +6,17 @@
 #include <stddef.h>
 #include "cpu/interrupt.h"
 
-#define EXT_SCANCODE_UP        0x48
-#define EXT_SCANCODE_DOWN      0x50
-#define EXT_SCANCODE_LEFT      0x4B
-#define EXT_SCANCODE_RIGHT     0x4D
+#define EXT_SCANCODE_UP             0x48
+#define EXT_SCANCODE_DOWN           0x50
+#define EXT_SCANCODE_LEFT           0x4B
+#define EXT_SCANCODE_RIGHT          0x4D
 
-#define KEYBOARD_DATA_PORT     0x60
-#define EXTENDED_SCANCODE_BYTE 0xE0
+#define EXT_SCANCODE_SHIFT_LEFT     0x2A
+#define EXT_SCANCODE_SHIFT_RIGHT    0x36
+#define EXT_SCANCODE_CTRL_LEFT      0x1D
+
+#define KEYBOARD_DATA_PORT          0x60
+#define EXTENDED_SCANCODE_BYTE      0xE0
 
 /**
  * keyboard_scancode_1_to_ascii_map[256], Convert scancode values that correspond to ASCII printables
@@ -21,6 +25,7 @@
  * By default, QEMU using scancode set 1 (from empirical testing)
  */
 extern const char keyboard_scancode_1_to_ascii_map[256];
+extern const char keyboard_scancode_1_to_ascii_shift_map[256];
 
 /**
  * KeyboardDriverState - Contain all driver states
@@ -32,6 +37,8 @@ extern const char keyboard_scancode_1_to_ascii_map[256];
 struct KeyboardDriverState {
     bool read_extended_mode;
     bool keyboard_input_on;
+    bool shift_pressed;
+    bool ctrl_pressed;
     char keyboard_buffer;
 } __attribute((packed));
 
