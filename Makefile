@@ -27,14 +27,14 @@ OBJS    := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
 .PHONY: run clean build kernel iso disk
 
 run: clean build
-#	@qemu-system-i386 -s -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
-	@qemu-system-i386 -s -S -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+# @qemu-system-i386 -s -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+	@qemu-system-i386 -s -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 
 clean:
-#	@rm -rf $(OUTPUT_FOLDER)/*
+# @rm -rf $(OUTPUT_FOLDER)/*
 	@rm -rf *.o *.iso $(OUTPUT_FOLDER)/cpu/ $(OUTPUT_FOLDER)/driver/ $(OUTPUT_FOLDER)/stdlib/ $(OUTPUT_FOLDER)/text/
 
-build: iso
+build: iso disk
 
 # Pattern rules
 $(OUTPUT_FOLDER)/%.o: $(SOURCE_FOLDER)/%.c
@@ -60,7 +60,7 @@ iso: kernel
 -include $(OBJS:.o=.d)
 
 # Disk stuffs
-DISK_NAME      = storage
+DISK_NAME = storage
 
 disk:
 	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
