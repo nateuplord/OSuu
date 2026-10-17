@@ -14,7 +14,13 @@ void kernel_setup(void) {
     activate_keyboard_interrupt();
     framebuffer_clear();
     framebuffer_set_cursor(0, 0);
-   
+
+// to test disk driver and filesys 2.1-2.2
+    // struct BlockBuffer b;
+    // for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
+    // write_blocks(&b, 17, 1);
+    // while (true);
+
     int row = 0, col = 0;
     keyboard_state_activate();
     while (true) {
