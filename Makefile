@@ -56,3 +56,9 @@ iso: kernel
 	@rm -r                          $(OUTPUT_FOLDER)/iso/
 
 -include $(OBJS:.o=.d)
+
+# Disk stuffs
+DISK_NAME      = storage
+
+disk:
+	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
