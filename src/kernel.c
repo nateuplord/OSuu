@@ -6,6 +6,7 @@
 #include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include "driver/disk.h"
 
 static uint8_t row = 0;
 static uint8_t col = 0;
@@ -41,11 +42,11 @@ void kernel_setup(void) {
     framebuffer_set_cursor(0, 0);
     keyboard_state_activate();
 
-    // to test disk driver and filesys 2.1-2.2
-    // struct BlockBuffer b;
-    // for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
-    // write_blocks(&b, 17, 1);
-    // while (true);
+// to test disk driver and filesys 2.1-2.2
+    struct BlockBuffer b;
+    for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
+    write_blocks(&b, 17, 1);
+    while (true);
 
     while (true) {
         char c;
