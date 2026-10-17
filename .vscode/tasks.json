@@ -24,11 +24,10 @@
             "dependsOn": "Build OS",
             "args": [
                 "-s",
-                "-S",
                 "-drive", 
-                "file=storage.bin,format=raw,if=ide,index=0,media=disk",
+                "file=bin/storage.bin,format=raw,if=ide,index=0,media=disk,cache=directsync",
                 "-cdrom", 
-                "OS2025.iso"
+                "bin/OSuu.iso"
             ],
             "options": {
                 "cwd": "${workspaceFolder}/bin"

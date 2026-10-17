@@ -46,6 +46,7 @@ void kernel_setup(void) {
     struct BlockBuffer b;
     for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
     write_blocks(&b, 17, 1);
+    while(true);
 
     while (true) {
         char c;
