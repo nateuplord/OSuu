@@ -32,7 +32,7 @@ run: clean build
 
 clean:
 #	@rm -rf $(OUTPUT_FOLDER)/*
-	@rm -f *.o *.iso $(OUTPUT_FOLDER)/cpu $(OUTPUT_FOLDER)/driver $(OUTPUT_FOLDER)/stdlib $(OUTPUT_FOLDER)/text
+	@rm -rf *.o *.iso $(OUTPUT_FOLDER)/cpu/ $(OUTPUT_FOLDER)/driver/ $(OUTPUT_FOLDER)/stdlib/ $(OUTPUT_FOLDER)/text/
 
 build: iso
 
