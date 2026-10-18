@@ -3,15 +3,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/** x86 inb/outb:
- * @param dx target port
- * @param al input/output byte
- */
-
 void out(uint16_t port, uint8_t data) {
     __asm__(
         "outb %0, %1"
-        : // <Empty output operand>
+        : // Empty output operand
         : "a"(data), "Nd"(port)
     );
 }
@@ -29,7 +24,7 @@ uint8_t in(uint16_t port) {
 void out16(uint16_t port, uint16_t data) {
     __asm__(
         "outw %0, %1"
-        : // <Empty output operand>
+        : // Empty output operand
         : "a"(data), "Nd"(port)
     );
 }

@@ -1,10 +1,14 @@
 #include "cpu/gdt.h"
 
 /**
- * global_descriptor_table, predefined GDT.
- * Initial SegmentDescriptor already set properly according to Intel Manual &
- * OSDev. Table entry : [{Null Descriptor}, {Kernel Code}, {Kernel Data
- * (variable, etc)}, ...].
+ * Predefined GDT.
+ *
+ * @note
+ * Initial SegmentDescriptor already set properly according to:
+ * - [Intel Manual](https://www.intel.com/content/www/us/en/content-details/782158/intel-64-and-ia-32-architectures-software-developer-s-manual-combined-volumes-1-2a-2b-2c-2d-3a-3b-3c-3d-and-4.html) 
+ * - [OSDev Wiki](https://wiki.osdev.org/)
+ *
+ * Table entry : [{Null Descriptor}, {Kernel Code}, {Kernel Data (variable, etc)}, ...].
  */
 struct GlobalDescriptorTable global_descriptor_table = {
     .table = {
@@ -54,10 +58,12 @@ struct GlobalDescriptorTable global_descriptor_table = {
     }};
 
 /**
- * _gdt_gdtr, predefined system GDTR.
- * GDT pointed by this variable is already set to point global_descriptor_table
- * above. From: https://wiki.osdev.org/Global_Descriptor_Table, GDTR.size is GDT
- * size minus 1.
+ * Predefined system GDTR.
+ * 
+ * @note
+ * GDT pointed by this variable is already set to point `global_descriptor_table` above. 
+ *
+ * From [OSDev Wiki](https://wiki.osdev.org/_gdt_gdtrGlobal_Descriptor_Table), `GDTR.size` is GDT size minus 1.
  */
 struct GDTR _gdt_gdtr = {
     .size = sizeof(global_descriptor_table) - 1,
