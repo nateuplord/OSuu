@@ -9,7 +9,11 @@ static void ATA_DRQ_wait() {
     while (!(in(0x1F7) & ATA_STATUS_RDY));
 }
 
-void read_blocks(void *ptr, uint32_t logical_block_address, uint8_t block_count) {
+void read_blocks(
+    void *ptr, 
+    uint32_t logical_block_address, 
+    uint8_t block_count
+) {
     ATA_busy_wait();
     out(0x1F6, 0xE0 | ((logical_block_address >> 24) & 0xF));
     out(0x1F2, block_count);
@@ -28,7 +32,11 @@ void read_blocks(void *ptr, uint32_t logical_block_address, uint8_t block_count)
     }
 }
 
-void write_blocks(const void *ptr, uint32_t logical_block_address, uint8_t block_count) {
+void write_blocks(
+    const void *ptr, 
+    uint32_t logical_block_address, 
+    uint8_t block_count
+) {
     ATA_busy_wait();
     out(0x1F6, 0xE0 | ((logical_block_address >> 24) & 0xF));
     out(0x1F2, block_count);
