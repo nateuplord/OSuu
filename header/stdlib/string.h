@@ -9,7 +9,7 @@
  * 
  * @note 
  * Run `man memset` or
- * https://man7.org/linux/man-pages/man3/memset.3.html for more details
+ * visit the [Linux manual](https://man7.org/linux/man-pages/man3/memset.3.html) webpage for more details
  * 
  * @param s
  * Pointer to memory area to set
@@ -28,7 +28,7 @@ void* memset(void *s, int c, size_t n);
  * 
  * @note 
  * Run `man memcpy` or
- * https://man7.org/linux/man-pages/man3/memcpy.3.html for more details
+ * visit the [Linux manual](https://man7.org/linux/man-pages/man3/memcpy.3.html) webpage for more details
  * 
  * @param dest
  * Starting location for memory area to set
@@ -48,7 +48,7 @@ void* memcpy(
 
 /**
  * C standard memcmp, check man memcmp or
- * https://man7.org/linux/man-pages/man3/memcmp.3.html for more details
+ * visit the [Linux manual](https://man7.org/linux/man-pages/man3/memcmp.3.html) webpage for more details
  * 
  * @param s1
  * Pointer to first memory area
@@ -71,7 +71,7 @@ int memcmp(
  * 
  * @note
  * Run man `memmove` or
- * https://man7.org/linux/man-pages/man3/memmove.3.html for more details
+ * visit the [Linux manual](https://man7.org/linux/man-pages/man3/memmove.3.html) webpage for more details
  * 
  * @param dest
  * Pointer to destination memory
