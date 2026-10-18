@@ -21,7 +21,7 @@
  * @return
  * Pointer to `s`
 */
-void* memset(void *s, int c, size_t n);
+void *memset(void *s, int c, size_t n);
 
 /**
  * C standard `memcpy`
@@ -40,7 +40,7 @@ void* memset(void *s, int c, size_t n);
  * @return
  * Pointer to `dest`
 */
-void* memcpy(
+void *memcpy(
     void* restrict dest, 
     const void* restrict src, 
     size_t n
