@@ -12,7 +12,7 @@ struct IDTR idtr = {
 };
 
 void initialize_idt(void) {
-    for (uint16_t i = 0; i < ISR_STUB_TABLE_LIMIT; i++) {
+    for (uint16_t i = 0; i < ISR_STUB_TABLE_LIMIT; ++i) {
         set_interrupt_gate(
             i, 
             isr_stub_table[i], 

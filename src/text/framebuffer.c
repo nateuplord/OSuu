@@ -28,7 +28,7 @@ void framebuffer_write(
 }
 
 void framebuffer_clear(void) {
-    for (int i = 0; i < 80 * 25; i++) {
+    for (size_t i = 0; i < 80 * 25; ++i) {
         FRAMEBUFFER_MEMORY_OFFSET[i * 2] = 0x00;     // character
         FRAMEBUFFER_MEMORY_OFFSET[i * 2 + 1] = 0x07; // color
     }
