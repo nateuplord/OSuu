@@ -7,8 +7,8 @@ struct InterruptDescriptorTable interrupt_descriptor_table = {
 };
 
 struct IDTR _idt_idtr = {
-    .size = sizeof(interrupt_descriptor_table) - 1,
-    .address = &interrupt_descriptor_table,
+    .size       = sizeof(interrupt_descriptor_table) - 1,
+    .address    = &interrupt_descriptor_table,
 };
 
 void initialize_idt(void) {
@@ -20,7 +20,10 @@ void initialize_idt(void) {
             0
         );
     }
-    __asm__ volatile("lidt %0" : : "m"(_idt_idtr));
+    __asm__ volatile(
+        "lidt %0" 
+        : // Ignored branch
+        : "m"(_idt_idtr));
     __asm__ volatile("sti");
 }
 
@@ -31,9 +34,9 @@ void set_interrupt_gate(
     uint8_t privilege
 ) {
     struct IDTGate *idt_int_gate = &interrupt_descriptor_table.table[int_vector];
-
+    
     // Target system 32-bit and flag this as valid interrupt gate
-    idt_int_gate->offset_low    = (uint32_t)handler_address & 0xFFFF;
+    idt_int_gate->offset_low    = (uint32_t) handler_address & 0xFFFF;
     idt_int_gate->segment       = gdt_seg_selector;
     idt_int_gate->dpl           = privilege;
     idt_int_gate->_r_bit_1      = INTERRUPT_GATE_R_BIT_1;

@@ -11,11 +11,11 @@
  * @see [Intel Manual](https://www.intel.com/content/www/us/en/content-details/782158/intel-64-and-ia-32-architectures-software-developer-s-manual-combined-volumes-1-2a-2b-2c-2d-3a-3b-3c-3d-and-4.html):
  * - ch. 6.10 _Interrupt Descriptor Table_
  */
-#define IDT_MAX_ENTRY_COUNT 256
-#define ISR_STUB_TABLE_LIMIT 64
-#define INTERRUPT_GATE_R_BIT_1 0b000
-#define INTERRUPT_GATE_R_BIT_2 0b110
-#define INTERRUPT_GATE_R_BIT_3 0b0
+#define IDT_MAX_ENTRY_COUNT     256
+#define ISR_STUB_TABLE_LIMIT    64
+#define INTERRUPT_GATE_R_BIT_1  0b000
+#define INTERRUPT_GATE_R_BIT_2  0b110
+#define INTERRUPT_GATE_R_BIT_3  0b0
 
 /**
  * Interrupt Handler / ISR stub for reducing code duplication. 

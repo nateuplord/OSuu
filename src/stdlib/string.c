@@ -10,7 +10,11 @@ void *memset(void *s, int c, size_t n) {
     return s;
 }
 
-void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
+void *memcpy(
+    void *restrict dest, 
+    const void *restrict src, 
+    size_t n
+) {
     uint8_t *dstbuf = (uint8_t *) dest;
     const uint8_t *srcbuf = (const uint8_t *) src;
     
@@ -20,7 +24,11 @@ void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
     return dstbuf;
 }
 
-int memcmp(const void *s1, const void *s2, size_t n) {
+int memcmp(
+    const void *s1, 
+    const void *s2, 
+    size_t n
+) {
     const uint8_t *buf1 = (const uint8_t *) s1;
     const uint8_t *buf2 = (const uint8_t *) s2;
     
@@ -31,7 +39,11 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     return 0;
 }
 
-void *memmove(void *dest, const void *src, size_t n) {
+void *memmove(
+    void *dest, 
+    const void *src, 
+    size_t n
+) {
     uint8_t *dstbuf = (uint8_t *) dest;
     const uint8_t *srcbuf = (const uint8_t *) src;
     
