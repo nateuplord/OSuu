@@ -24,7 +24,7 @@
 
 /**
  * Set framebuffer character and color with corresponding parameter values.
- * @note More details: https://en.wikipedia.org/wiki/BIOS_color_attributes
+ * @note More details: [BIOS color attributes](https://en.wikipedia.org/wiki/BIOS_color_attributes) in Wikipedia
  *
  * @param row 
  * Vertical location, uses zero-indexing
