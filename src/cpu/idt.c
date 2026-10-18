@@ -31,16 +31,16 @@ void set_interrupt_gate(
     uint16_t gdt_seg_selector, 
     uint8_t privilege
 ) {
-    struct IDTGate *idt_int_gate = &idt.table[int_vector];
+    struct IDTGate *idt_gate = &idt.table[int_vector];
     
     // Target system 32-bit and flag this as valid interrupt gate
-    idt_int_gate->offset_low = (uint32_t)handler_address & 0xFFFF;
-    idt_int_gate->segment = gdt_seg_selector;
-    idt_int_gate->dpl = privilege;
-    idt_int_gate->_r_bit_1 = INTERRUPT_GATE_R_BIT_1;
-    idt_int_gate->_r_bit_2 = INTERRUPT_GATE_R_BIT_2;
-    idt_int_gate->_r_bit_3 = INTERRUPT_GATE_R_BIT_3;
-    idt_int_gate->gate_32 = 1;
-    idt_int_gate->valid_bit = 1;
-    idt_int_gate->offset_high = ((uint32_t)handler_address >> 16) & 0xFFFF;
+    idt_gate->offset_low = (uint32_t)handler_address & 0xFFFF;
+    idt_gate->segment = gdt_seg_selector;
+    idt_gate->dpl = privilege;
+    idt_gate->_r_bit_1 = INTERRUPT_GATE_R_BIT_1;
+    idt_gate->_r_bit_2 = INTERRUPT_GATE_R_BIT_2;
+    idt_gate->_r_bit_3 = INTERRUPT_GATE_R_BIT_3;
+    idt_gate->gate_32 = 1;
+    idt_gate->valid_bit = 1;
+    idt_gate->offset_high = ((uint32_t)handler_address >> 16) & 0xFFFF;
 }
