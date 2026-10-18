@@ -10,7 +10,7 @@
 
 static uint8_t row = 0;
 static uint8_t col = 0;
-static int line_length[FRAMEBUFFER_HEIGHT]; 
+static uint8_t line_length[FRAMEBUFFER_HEIGHT]; 
 
 static void new_line(void) {
     line_length[row] = col;
