@@ -33,7 +33,7 @@ static void handle_backspace(void) {
 }
 
 void kernel_setup(void) {
-    load_gdt(&_gdt_gdtr);
+    load_gdt(&gdtr);
     pic_remap();
     initialize_idt();
     

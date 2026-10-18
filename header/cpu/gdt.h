@@ -15,7 +15,7 @@
 #define GDT_KERNEL_CODE_SEGMENT_SELECTOR 0x8
 #define GDT_KERNEL_DATA_SEGMENT_SELECTOR 0x10
 
-extern struct GDTR _gdt_gdtr;
+extern struct GDTR gdtr;
 
 /**
  * Segment Descriptor storing system segment information.

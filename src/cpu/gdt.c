@@ -10,7 +10,7 @@
  *
  * Table entry : [{Null Descriptor}, {Kernel Code}, {Kernel Data (variable, etc)}, ...].
  */
-struct GlobalDescriptorTable global_descriptor_table = {
+struct GlobalDescriptorTable gdt = {
     .table = {
         {
             .segment_low    = 0,
@@ -65,7 +65,7 @@ struct GlobalDescriptorTable global_descriptor_table = {
  *
  * From [OSDev Wiki](https://wiki.osdev.org/Global_Descriptor_Table), `GDTR.size` is GDT size minus 1.
  */
-struct GDTR _gdt_gdtr = {
-    .size       = sizeof(global_descriptor_table) - 1,
-    .address    = &global_descriptor_table,
+struct GDTR gdtr = {
+    .size       = sizeof(gdt) - 1,
+    .address    = &gdt,
 };

@@ -22,7 +22,7 @@
  * @note This array can be iterated in `initialize_idt()`
  */
 extern void *isr_stub_table[ISR_STUB_TABLE_LIMIT];
-extern struct IDTR _idt_idtr;
+extern struct IDTR idtr;
 
 /**
  * IDT entry that points into interrupt handler
