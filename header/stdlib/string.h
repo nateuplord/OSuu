@@ -47,7 +47,10 @@ void* memcpy(
 );
 
 /**
- * C standard memcmp, check man memcmp or
+ * C standard memcmp
+ *
+ * @details
+ * Run `man memcmp` or
  * visit the [Linux manual](https://man7.org/linux/man-pages/man3/memcmp.3.html) webpage for more details
  * 
  * @param s1
@@ -70,7 +73,7 @@ int memcmp(
  * C standard `memmove`
  * 
  * @note
- * Run man `memmove` or
+ * Run `man memmove` or
  * visit the [Linux manual](https://man7.org/linux/man-pages/man3/memmove.3.html) webpage for more details
  * 
  * @param dest
