@@ -2,11 +2,11 @@
 #include "cpu/gdt.h"
 #include <stdint.h>
 
-struct InterruptDescriptorTable interrupt_descriptor_table = {.table = {}};
+struct InterruptDescriptorTable idt = {.table = {}};
 
 struct IDTR idtr = {
-    .size = sizeof(interrupt_descriptor_table) - 1,
-    .address = &interrupt_descriptor_table,
+    .size = sizeof(idt) - 1,
+    .address = &idt,
 };
 
 void initialize_idt(void) {
@@ -20,7 +20,7 @@ void initialize_idt(void) {
 
 void set_interrupt_gate(uint8_t int_vector, void *handler_address,
                         uint16_t gdt_seg_selector, uint8_t privilege) {
-  struct IDTGate *idt_int_gate = &interrupt_descriptor_table.table[int_vector];
+  struct IDTGate *idt_int_gate = &idt.table[int_vector];
 
   // Target system 32-bit and flag this as valid interrupt gate
   idt_int_gate->offset_low = (uint32_t)handler_address & 0xFFFF;
