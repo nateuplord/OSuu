@@ -7,11 +7,13 @@
 
 /**
  * Terminal framebuffer
- * Resolution: 80x25
- * Starting at FRAMEBUFFER_MEMORY_OFFSET,
+ *
+ * @details
+ * Starting at `FRAMEBUFFER_MEMORY_OFFSET`,
  * - Even number memory: Character, 8-bit
- * - Odd number memory:  Character color lower 4-bit, Background color upper
- * 4-bit
+ * - Odd number memory: Character color lower 4-bit, Background color upper 4-bit
+ *
+ * @note Resolution is 80x25
  */
 #define FRAMEBUFFER_MEMORY_OFFSET   ((uint8_t *) 0xB8000)
 #define CURSOR_PORT_CMD             0x03D4
@@ -22,13 +24,22 @@
 
 /**
  * Set framebuffer character and color with corresponding parameter values.
- * More details: https://en.wikipedia.org/wiki/BIOS_color_attributes
+ * @note More details: [BIOS color attributes](https://en.wikipedia.org/wiki/BIOS_color_attributes) in Wikipedia
  *
- * @param row Vertical location (index start 0)
- * @param col Horizontal location (index start 0)
- * @param c   Character
- * @param fg  Foreground / Character color
- * @param bg  Background color
+ * @param row 
+ * Vertical location, uses zero-indexing
+ *
+ * @param col 
+ * Horizontal location, uses zero-indexing
+ *
+ * @param c
+ * ASCII character
+ *
+ * @param fg 
+ * Foreground / Character color
+ *
+ * @param bg 
+ * Background color
  */
 void framebuffer_write(
     uint8_t row, 
@@ -39,18 +50,22 @@ void framebuffer_write(
 );
 
 /**
- * Set cursor to specified location. Row and column starts from 0
+ * Set cursor to specified location. 
+ * @details Row and column starts from 0
  *
- * @param r row
- * @param c column
+ * @param r 
+ * Current cursor vertical position (row)
+ *
+ * @param c 
+ * Current cursor horizontal position (column)
  */
 void framebuffer_set_cursor(uint8_t r, uint8_t c);
 
 /**
- * Set all cell in framebuffer character to 0x00 (empty character)
- * and color to 0x07 (gray character & black background)
- * Extra note: It's allowed to use different color palette for this
- *
+ * Set all cell in framebuffer character to: 
+ * - `0x00` (empty character), and
+ * - `0x07` (gray character & black background)
+ * @note It's allowed to use different color palette for this
  */
 void framebuffer_clear(void);
 
