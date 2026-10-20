@@ -13,7 +13,7 @@ ISO_NAME      = OSuu
 WARNING_CFLAG = -Wall -Wextra -Werror
 DEBUG_CFLAG   = -fshort-wchar -g
 STRIP_CFLAG   = -nostdlib -fno-stack-protector -nostartfiles -nodefaultlibs -ffreestanding
-C_FLAGS       = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -I$(HEADER_FOLDER) -m32 -c
+C_FLAGS       = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -I$(HEADER_FOLDER) -m32 -mgeneral-regs-only -c -MMD -MP
 ASM_FLAGS     = -f elf32 -g -F dwarf
 LINK_FLAGS    = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 ISO_FLAGS     = -R -b boot/grub/grub1 -no-emul-boot -boot-load-size 4 -A os -input-charset utf8 -quiet -boot-info-table
@@ -24,11 +24,16 @@ ASM_SRC := $(shell find $(SOURCE_FOLDER) -name '*.s')
 OBJS    := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
            $(ASM_SRC:$(SOURCE_FOLDER)/%.s=$(OUTPUT_FOLDER)/%.o)
 
-.PHONY: run clean build kernel iso disk
+.PHONY: run clean build kernel iso disk test-sample
+
+SAMPLE_IMAGE = .kit/ch2/sample-image.bin
 
 run: clean build
 # @qemu-system-i386 -s -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 	@qemu-system-i386 -s -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk,cache=directsync -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+
+test-sample: clean build
+	@qemu-system-i386 -s -S -drive file=$(SAMPLE_IMAGE),format=raw,if=ide,index=0,media=disk -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 
 clean:
 # @rm -rf $(OUTPUT_FOLDER)/*
