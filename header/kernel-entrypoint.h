@@ -4,15 +4,15 @@
 #include "cpu/gdt.h"
 
 /**
- * Load GDT from `gdtr` and complete init for protected mode. 
- * 
+ * Load GDT from `gdtr` and complete init for protected mode.
+ *
  * @note
  * This procedure is implemented in asm and will not activate the CPU interrupt flag
- * 
- * @warning 
+ *
+ * @warning
  * Invalid address / definition of GDT will cause bootloop after calling this procedure.
- * 
- * @param gdtr 
+ *
+ * @param gdtr
  * Pointer to already defined & initialized GDTR
  */
 extern void load_gdt(struct GDTR *gdtr);

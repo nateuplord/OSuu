@@ -33,14 +33,14 @@ const char keyboard_scancode_1_to_ascii_shift_map[256] = {
     0,   0x1B, '!',  '@', '#', '$', '%', '^', '&', '*', '(', ')', '_',
     '+', '\b', '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P',
     '{', '}',  '\n', 0,   'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L',
-    ':', '\"',  '~',  0,   '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<',
-    '>', '?', 0,    '*', 0,   ' ', 0,   0,   0,   0,   0,   0,   0,
+    ':', '\"', '~',  0,   '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<',
+    '>', '?',  0,    '*', 0,   ' ', 0,   0,   0,   0,   0,   0,   0,
     0,   0,    0,    0,   0,   0,   0,   0,   0,   '-', 0,   0,   0,
     '+', 0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,    0,    0,   0,   0,   0,   0,   0,   0,   0,
-    
+
     0,   0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -57,8 +57,7 @@ static void update_modifier_state(uint8_t scancode) {
     bool released = scancode & 0x80;
     uint8_t key = scancode & 0x7F;
 
-    if (key == EXT_SCANCODE_SHIFT_LEFT || 
-        key == EXT_SCANCODE_SHIFT_RIGHT) {
+    if (key == EXT_SCANCODE_SHIFT_LEFT || key == EXT_SCANCODE_SHIFT_RIGHT) {
         keyboard_state.shift_pressed = !released;
     }
 
@@ -67,7 +66,7 @@ static void update_modifier_state(uint8_t scancode) {
     }
 }
 
-void keyboard_state_activate(void) { 
+void keyboard_state_activate(void) {
     keyboard_state.keyboard_input_on = true;
 }
 
@@ -85,22 +84,22 @@ void keyboard_isr(void) {
     update_modifier_state(scancode);
 
     if (keyboard_state.keyboard_input_on) {
-        const char *map = keyboard_state.shift_pressed 
-                        ? keyboard_scancode_1_to_ascii_shift_map 
-                        : keyboard_scancode_1_to_ascii_map;
-        
+        const char *map = keyboard_state.shift_pressed
+                            ? keyboard_scancode_1_to_ascii_shift_map
+                            : keyboard_scancode_1_to_ascii_map;
+
         char ascii_char = map[scancode];
-        
+
         if (keyboard_state.ctrl_pressed) {
             if (ascii_char >= 'A' && ascii_char <= 'Z') {
                 ascii_char += 'a' - 'A';
             }
 
             if (ascii_char >= 'a' && ascii_char <= 'z') {
-                ascii_char = ascii_char- 'a' + 1;
+                ascii_char = ascii_char - 'a' + 1;
             }
         }
-        
+
         if (ascii_char) {
             keyboard_state.keyboard_buffer = ascii_char;
         }
