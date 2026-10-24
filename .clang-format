@@ -1,0 +1,29 @@
+Language: C
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+ColumnLimit: 250
+
+IndentCaseLabels: true
+BinPackParameters: AlwaysOnePerLine
+SpaceAfterCStyleCast: true
+PointerAlignment: Right
+
+AllowShortFunctionsOnASingleLine: None
+AllowShortEnumsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+AlignTrailingComments: true
+ReflowComments: Never
+
+BreakBeforeInlineASMColon: Always
+
+AlignAfterOpenBracket: BlockIndent
+AlignOperands: AlignAfterOperator
+
+# AlignConsecutiveAssignments: Consecutive
+# AlignConsecutiveDeclarations: Consecutive
+# AlignConsecutiveMacros: Consecutive
+# AlignConsecutiveBitFields: Consecutive
