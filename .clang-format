@@ -2,7 +2,6 @@ Language: C
 BasedOnStyle: LLVM
 
 IndentWidth: 4
-ColumnLimit: 250
 
 IndentCaseLabels: true
 BinPackParameters: AlwaysOnePerLine
