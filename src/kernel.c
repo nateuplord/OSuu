@@ -2,8 +2,8 @@
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
 #include "driver/keyboard.h"
-#include "filesystem/ext2.h"
-#include "kernel-entrypoint.h"
+#include "fs/ext2.h"
+#include "boot/kernel-entrypoint.h"
 #include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stdint.h>
