@@ -2,13 +2,15 @@
 #include "cpu/portio.h"
 
 static void ATA_busy_wait() {
-    while (in(0x1F7) & ATA_STATUS_BSY)
-        ;
+    while (in(0x1F7) & ATA_STATUS_BSY) {
+        continue;
+    }
 }
 
 static void ATA_DRQ_wait() {
-    while (!(in(0x1F7) & ATA_STATUS_RDY))
-        ;
+    while (!(in(0x1F7) & ATA_STATUS_RDY)) {
+        continue;
+    }
 }
 
 void read_blocks(
