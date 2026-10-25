@@ -37,10 +37,11 @@ int memcmp(
     const uint8_t *buf2 = (const uint8_t *) s2;
 
     for (size_t i = 0; i < n; ++i) {
-        if (buf1[i] < buf2[i])
+        if (buf1[i] < buf2[i]) {
             return -1;
-        else if (buf1[i] > buf2[i])
+        } else if (buf1[i] > buf2[i]) {
             return 1;
+        }
     }
     return 0;
 }
