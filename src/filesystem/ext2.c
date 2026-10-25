@@ -22,7 +22,7 @@ const uint8_t fs_signature[BLOCK_SIZE] = "osu! is an open "
                                          "with later ports"
                                          "to macOS, Linux,"
                                          "Android, and    "
-                                         "iOS.            ";
+                                         "iOS.          \n";
 
 bool is_empty_storage() {
     struct BlockBuffer buf;
