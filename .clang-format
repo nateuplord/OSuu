@@ -8,6 +8,9 @@ BinPackParameters: AlwaysOnePerLine
 SpaceAfterCStyleCast: true
 PointerAlignment: Right
 
+BreakAfterOpenBracketLoop: true
+BreakBeforeCloseBracketLoop: true
+
 AllowShortFunctionsOnASingleLine: None
 AllowShortEnumsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never
