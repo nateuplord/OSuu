@@ -5,90 +5,24 @@
 #include <stddef.h>
 #include <stdint.h>
 
-const uint8_t fs_signature[BLOCK_SIZE] = {
-    'C',
-    'o',
-    'u',
-    'r',
-    's',
-    'e',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    'D',
-    'e',
-    's',
-    'i',
-    'g',
-    'n',
-    'e',
-    'd',
-    ' ',
-    'b',
-    'y',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    'L',
-    'a',
-    'b',
-    ' ',
-    'S',
-    'i',
-    's',
-    't',
-    'e',
-    'r',
-    ' ',
-    'I',
-    'T',
-    'B',
-    ' ',
-    ' ',
-    'M',
-    'a',
-    'd',
-    'e',
-    ' ',
-    'w',
-    'i',
-    't',
-    'h',
-    ' ',
-    '<',
-    '3',
-    ' ',
-    ' ',
-    ' ',
-    ' ',
-    '-',
-    '-',
-    '-',
-    '-',
-    '-',
-    '-',
-    '-',
-    '-',
-    '-',
-    '-',
-    '-',
-    '2',
-    '0',
-    '2',
-    '5',
-    '\n',
-    [BLOCK_SIZE - 2] = 'O',
-    [BLOCK_SIZE - 1] = 'k',
-};
+const uint8_t fs_signature[BLOCK_SIZE] = "osu! is an open "
+                                         "source rhythm   "
+                                         "game originally "
+                                         "created and     "
+                                         "self-published  "
+                                         "by Australian   "
+                                         "developer Dean  "
+                                         "Herbert as a    "
+                                         "freeware.       "
+                                         "                "
+                                         "It was released "
+                                         "for Microsoft   "
+                                         "Windows on 16   "
+                                         "September 2007, "
+                                         "with later ports"
+                                         "to macOS, Linux,"
+                                         "Android, and    "
+                                         "iOS.            ";
 
 bool is_empty_storage() {
     struct BlockBuffer buf;
