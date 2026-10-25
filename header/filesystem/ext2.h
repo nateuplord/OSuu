@@ -270,11 +270,13 @@ struct EXT2InodeTable {
 
 /**
  * EXT2DirectoryEntry
+ *
+ * @details
  * Linked List Directory
- * reference:
- * - https://www.nongnu.org/ext2-doc/ext2.html#linked-directories
+ *
+ * @see
+ * [nongnu.org](https://www.nongnu.org/ext2-doc/ext2.html#linked-directories)
  */
-
 struct EXT2DirectoryEntry {
     /**
      * Inode number of the file entry.
