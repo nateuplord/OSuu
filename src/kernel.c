@@ -1,9 +1,10 @@
+#include "boot/kernel-entrypoint.h"
+#include "boot/multiboot.h"
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
-#include "boot/kernel-entrypoint.h"
 #include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -32,11 +33,19 @@ static void handle_backspace(void) {
     }
 }
 
-void kernel_setup(void) {
+void kernel_setup(struct MultibootInfo *mb_info) {
     load_gdt(&gdtr);
     pic_remap();
     initialize_filesystem_ext2();
     initialize_idt();
+
+    // Check if multiboot linear graphics mode ever fails
+    if (!(mb_info->flags & 0x1000)) {
+        // if fails, then display white E on red bg
+        volatile uint16_t *vga = (volatile uint16_t *) 0xB8000;
+        vga[0] = (0x4F << 8) | 'E';
+        return;
+    }
 
     activate_keyboard_interrupt();
     framebuffer_clear();
