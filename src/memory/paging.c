@@ -1,20 +1,20 @@
-// #include "memory/paging.h"
-// #include <stdbool.h>
-// #include <stddef.h>
-// #include <stdint.h>
-// 
-// /**
-//  * _paging_kernel_page_directory and _paging_kernel_page_table is initialized on kernel-entrypoint.s
-//  */
-// __attribute__((
-//     aligned(0x1000)
-// )) struct PageDirectory _paging_kernel_page_directory;
-// 
-// __attribute__((aligned(0x1000))) struct PageTable _paging_kernel_page_table;
-// 
-// /**
-//  * Global page frame manager state tracking free/busy frames.
-//  */
+#include "memory/paging.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+/**
+ * _paging_kernel_page_directory and _paging_kernel_page_table is initialized on kernel-entrypoint.s
+ */
+__attribute__((
+    aligned(0x1000)
+)) struct PageDirectory _paging_kernel_page_directory;
+
+__attribute__((aligned(0x1000))) struct PageTable _paging_kernel_page_table;
+
+/**
+ * Global page frame manager state tracking free/busy frames.
+ */
 // struct PageManagerState page_manager_state = {
 //     .page_frame_map =
 //         {[0 ... KERNEL_RESERVED_PAGE_FRAME_COUNT - 1] = true,
