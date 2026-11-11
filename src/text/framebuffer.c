@@ -5,11 +5,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Framebuffer vars
 static uint8_t *fb_addr;
 static uint32_t fb_pitch;
 static uint32_t fb_width;
 static uint32_t fb_height;
 static uint8_t fb_bpp;
+
+// Cursor vars
+static uint8_t prev_cursor_row = 0xFF;
+static uint8_t prev_cursor_col = 0xFF;
 
 /**
  * 8x8 bitmap font, covering ASCII 0x00-0x7F.
@@ -174,11 +179,26 @@ void framebuffer_set_cursor(
     uint8_t r,
     uint8_t c
 ) {
-    uint16_t pos = r * 80 + c;
-    out(0x3D4, 0x0F);
-    out(0x3D5, pos & 0xFF);
-    out(0x3D4, 0x0E);
-    out(0x3D5, (pos >> 8) & 0xFF);
+    if (prev_cursor_row != 0xFF) {
+        uint16_t ex = prev_cursor_col * 8;
+        uint16_t ey = prev_cursor_row * 8;
+        for (uint8_t dy = 6; dy < 8; dy++) {
+            for (uint8_t dx = 0; dx < 8; dx++) {
+                putpixel(ex + dx, ey + dy, 0);
+            }
+        }
+    }
+
+    uint16_t bx = c * 8;
+    uint16_t by = r * 8;
+    for (uint8_t dy = 6; dy < 8; dy++) {
+        for (uint8_t dx = 0; dx < 8; dx++) {
+            putpixel(bx + dx, by + dy, 0xF);
+        }
+    }
+
+    prev_cursor_row = r;
+    prev_cursor_col = c;
 }
 
 // Also referenced from the same resource, https://github.com/dhepper/font8x8/blob/master/render.c
