@@ -3,31 +3,39 @@ global load_gdt     ; load GDT table
 extern kernel_setup ; kernel
 
 KERNEL_STACK_SIZE equ 2097152                  ; size of stack in bytes
-MAGIC_NUMBER      equ 0x1BADB002               ; define the magic number constant
-FLAGS             equ 0x4                      ; multiboot flags
-CHECKSUM          equ -(MAGIC_NUMBER + FLAGS)  ; calculate the checksum
-                                               ; (magic number + checksum + flags should equal 0)
 
 section .bss
 align 4                              ; align at 4 bytes
 kernel_stack:                        ; label points to beginning of memory
     resb KERNEL_STACK_SIZE           ; reserve stack for the kernel
 
-section .multiboot                   ; GNU GRUB Multiboot header
-align 4                              ; the code must be 4 byte aligned
-    dd MAGIC_NUMBER                  ; write the magic number to the machine code,
-    dd FLAGS                         ; the flags,
-    dd CHECKSUM                      ; and the checksum
-    dd 0                             ; header_addr
-    dd 0                             ; load_addr
-    dd 0                             ; load_end_addr
-    dd 0                             ; bss_end_addr
-    dd 0                             ; entry_addr
-    dd 0                             ; mode_type, 0 if linear graphics mode, 1 if EGA Text mode
-    dd 640                           ; width, 640px
-    dd 480                           ; height, 480px
-    dd 8                             ; depth
+MAGIC2    equ 0xE85250D6                                   ; Multiboot2 magic
+ARCH      equ 0                                            ; 0 = i386 protected mode
+CHECKSUM2 equ -(MAGIC2 + ARCH + (header_end - header_start))
 
+section .multiboot                   ; GNU GRUB Multiboot2 header
+align 8
+header_start:
+    dd MAGIC2
+    dd ARCH
+    dd header_end - header_start     ; header_length
+    dd CHECKSUM2
+
+    ; framebuffer request tag
+    align 8
+    dw 5            ; type = framebuffer
+    dw 1            ; flags = optional
+    dd 20           ; size = 8 (tag header) + 12 (width+height+depth)
+    dd 640          ; width
+    dd 480          ; height
+    dd 8            ; depth
+
+    ; terminating tag
+    align 8
+    dw 0
+    dw 0
+    dd 8
+header_end:
 
 
 section .text                                  ; start of the text (code)

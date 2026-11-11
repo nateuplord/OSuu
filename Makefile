@@ -17,7 +17,6 @@ STRIP_CFLAG   = -nostdlib -fno-stack-protector -nostartfiles -nodefaultlibs -ffr
 C_FLAGS       = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -I$(HEADER_FOLDER) -m32 -mgeneral-regs-only -c -MMD -MP
 ASM_FLAGS     = -f elf32 -g -F dwarf
 LINK_FLAGS    = -T $(SOURCE_FOLDER)/boot/linker.ld -melf_i386
-ISO_FLAGS     = -R -b boot/grub/grub1 -no-emul-boot -boot-load-size 4 -A os -input-charset utf8 -quiet -boot-info-table
 
 # Auto-discover sources
 C_SRC   := $(shell find $(SOURCE_FOLDER) -name '*.c')
@@ -58,9 +57,8 @@ kernel: $(OBJS)
 iso: kernel
 	@mkdir -p                       $(OUTPUT_FOLDER)/iso/boot/grub
 	@cp $(OUTPUT_FOLDER)/kernel     $(OUTPUT_FOLDER)/iso/boot/
-	@cp $(BOOT_FOLDER)/grub1        $(OUTPUT_FOLDER)/iso/boot/grub/
-	@cp $(BOOT_FOLDER)/menu.lst     $(OUTPUT_FOLDER)/iso/boot/grub/
-	@genisoimage $(ISO_FLAGS) -o    $(OUTPUT_FOLDER)/$(ISO_NAME).iso $(OUTPUT_FOLDER)/iso
+	@cp $(BOOT_FOLDER)/grub.cfg     $(OUTPUT_FOLDER)/iso/boot/grub/
+	@grub-mkrescue -o               $(OUTPUT_FOLDER)/$(ISO_NAME).iso $(OUTPUT_FOLDER)/iso
 	@rm -r                          $(OUTPUT_FOLDER)/iso/
 
 -include $(OBJS:.o=.d)
