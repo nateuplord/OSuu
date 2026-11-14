@@ -38,6 +38,7 @@ struct PageTable *paging_get_page_table(
     uint32_t page_directory_index
 ) {
     //this helper function is given from kit but you can always modified it if you think theres a bug (spoiler alert) or you think theres a better approach
+    // makasih yang ngasih tau muach (consensual ofc)
 
     if (page_directory_index == RECURSIVE_PAGE_DIRECTORY_INDEX ||
         page_dir != paging_get_current_page_directory_addr())
@@ -46,7 +47,7 @@ struct PageTable *paging_get_page_table(
     struct PageDirectoryEntry *dir_entry =
         &page_dir->table[page_directory_index];
 
-    if (dir_entry->flag.present_bit) {
+    if (dir_entry->flags.present) {
         return (struct PageTable *) (RECURSIVE_PAGE_TABLES_VIRTUAL_ADDRESS +
                                      page_directory_index * PAGE_FRAME_SIZE);
     }
@@ -57,12 +58,13 @@ struct PageTable *paging_get_page_table(
         if (!page_manager_state.page_frame_map[page_frame_number]) {
             page_manager_state.page_frame_map[page_frame_number] = true;
             page_manager_state.free_page_frame_count--;
-            dir_entry->flag = (struct PageDirectoryEntryFlag){
-                .present_bit = true,
-                .write_bit = true,
-                .us_bit = true,
+            dir_entry->flags = (struct PageDirectoryEntryFlag){
+                .present = true,
+                .read_write = true,
+                .user_supervisor = true,
             };
-            dir_entry->page_table_base_address = page_frame_number;
+            dir_entry->address_low = page_frame_number & 0xF; // addr low is the 4 lowest bits
+            dir_entry->address_high = (page_frame_number >> 4) & 0xFFFF; // addr high is the upper 16 bits
             struct PageTable *page_table =
                 (struct PageTable *) (RECURSIVE_PAGE_TABLES_VIRTUAL_ADDRESS +
                                       page_directory_index * PAGE_FRAME_SIZE);
@@ -82,13 +84,15 @@ void update_page_directory_entry(
 ) {
     uint32_t page_directory_index = ((uint32_t) virtual_addr >> 22) & 0x3FF;
     uint32_t page_table_index = ((uint32_t) virtual_addr >> 12) & 0x3FF;
+    
     struct PageTable *page_table =
-        get_page_table(page_dir, page_directory_index, true);
+        paging_get_page_table(page_dir, page_directory_index);
     if (page_table == NULL)
         return;
-    page_table->table[page_table_index].flag = flag;
-    page_table->table[page_table_index].physical_page_base_address =
-        ((uint32_t) physical_addr >> 12);
+    uint32_t pfn = (uint32_t) physical_addr >> 12;
+    page_table->data[page_table_index].flags = flag;
+    page_table->data[page_table_index].address_low = pfn & 0xF;
+    page_table->data[page_table_index].address_high = (pfn >> 4) & 0xFFFF;
     flush_single_tlb(virtual_addr);
 }
 
