@@ -1,7 +1,10 @@
 #include "memory/paging.h"
+#include "stdlib/string.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#define KERNEL_VIRTUAL_BASE 0xC0000000u
 
 /**
  * _paging_kernel_page_directory and _paging_kernel_page_table is initialized on kernel-entrypoint.s
@@ -23,6 +26,12 @@ struct PageManagerState page_manager_state = {
     .free_page_frame_count =
         PAGE_FRAME_MAX_COUNT - KERNEL_RESERVED_PAGE_FRAME_COUNT,
 };
+
+struct PageDirectory *paging_get_current_page_directory_addr(void) {
+    uint32_t current_page_directory_physical_addr;
+    __asm__ volatile("mov %%cr3, %0" : "=r"(current_page_directory_physical_addr));
+    return (struct PageDirectory *)(current_page_directory_physical_addr + KERNEL_VIRTUAL_BASE)
+}
 
 struct PageTable *paging_get_page_table(
     struct PageDirectory *page_dir,
