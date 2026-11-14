@@ -284,6 +284,8 @@ struct PageManagerState {
     uint32_t free_page_frame_count;
 } __attribute__((packed));
 
+struct PageDirectory *paging_get_current_page_directory_addr(void);
+
 /**
  * Edit page directory with respective parameter
  *
@@ -303,7 +305,7 @@ void update_page_directory_entry(
     struct PageDirectory *page_dir,
     void *physical_addr,
     void *virtual_addr,
-    struct PageDirectoryEntryFlag flag
+    struct PageTableEntryFlag flag
 );
 
 /**
