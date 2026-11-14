@@ -30,7 +30,7 @@ struct PageManagerState page_manager_state = {
 struct PageDirectory *paging_get_current_page_directory_addr(void) {
     uint32_t current_page_directory_physical_addr;
     __asm__ volatile("mov %%cr3, %0" : "=r"(current_page_directory_physical_addr));
-    return (struct PageDirectory *)(current_page_directory_physical_addr + KERNEL_VIRTUAL_BASE)
+    return (struct PageDirectory *)(current_page_directory_physical_addr + KERNEL_VIRTUAL_BASE);
 }
 
 struct PageTable *paging_get_page_table(
