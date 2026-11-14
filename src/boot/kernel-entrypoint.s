@@ -80,7 +80,8 @@ loader_entrypoint:
 
 loader_virtual:
     mov dword [_paging_kernel_page_directory], 0
-    invlpg [0]                                      ; Delete identity mapping and invalidate TLB cache for first page
+    mov eax, cr3
+    mov cr3, eax                                    ; Delete identity mapping and invalidate TLB cache for first page
     mov esp, kernel_stack + KERNEL_STACK_SIZE       ; Setup stack register to proper location
     call kernel_setup
 
