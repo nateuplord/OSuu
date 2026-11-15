@@ -284,7 +284,7 @@ struct PageManagerState {
     uint32_t free_page_frame_count;
 } __attribute__((packed));
 
-struct PageDirectory *paging_get_current_page_directory_addr(void);
+struct PageDirectory *get_current_page_directory_addr(void);
 
 /**
  * Edit page directory with respective parameter
@@ -324,7 +324,7 @@ void update_page_directory_entry(
  * Page table's position/index on page directory
  *
  */
-struct PageTable *paging_get_page_table(
+struct PageTable *get_page_table(
     struct PageDirectory *page_dir,
     uint32_t page_directory_index
 );
@@ -348,7 +348,7 @@ void flush_single_tlb(void *virtual_addr);
  * @return
  * Returns true when there's enough free memory available
  */
-bool paging_allocate_check(uint32_t amount);
+bool check_alloc(uint32_t amount);
 
 /**
  * Allocate single user page frame in page directory
@@ -362,7 +362,7 @@ bool paging_allocate_check(uint32_t amount);
  * @return
  * Physical address of allocated frame
  */
-bool paging_allocate_user_page_frame(
+bool alloc_user_page_frame(
     struct PageDirectory *page_dir,
     void *virtual_addr
 );
@@ -379,7 +379,7 @@ bool paging_allocate_user_page_frame(
  * @return
  * True if successfull, false otherwise
  */
-bool paging_free_user_page_frame(
+bool free_user_page_frame(
     struct PageDirectory *page_dir,
     void *virtual_addr
 );

@@ -27,7 +27,7 @@ struct PageManagerState page_manager_state = {
         PAGE_FRAME_MAX_COUNT - KERNEL_RESERVED_PAGE_FRAME_COUNT,
 };
 
-struct PageDirectory *paging_get_current_page_directory_addr(void) {
+struct PageDirectory *get_current_page_directory_addr(void) {
     uint32_t current_page_directory_physical_addr;
     __asm__ volatile("mov %%cr3, %0"
                      : "=r"(current_page_directory_physical_addr));
@@ -35,7 +35,7 @@ struct PageDirectory *paging_get_current_page_directory_addr(void) {
                                      KERNEL_VIRTUAL_BASE);
 }
 
-struct PageTable *paging_get_page_table(
+struct PageTable *get_page_table(
     struct PageDirectory *page_dir,
     uint32_t page_directory_index
 ) {
@@ -43,7 +43,7 @@ struct PageTable *paging_get_page_table(
     // makasih yang ngasih tau muach (consensual ofc)
 
     if (page_directory_index == RECURSIVE_PAGE_DIRECTORY_INDEX ||
-        page_dir != paging_get_current_page_directory_addr())
+        page_dir != get_current_page_directory_addr())
         return NULL;
 
     struct PageDirectoryEntry *dir_entry =
@@ -90,7 +90,7 @@ void update_page_directory_entry(
     uint32_t page_table_index = ((uint32_t) virtual_addr >> 12) & 0x3FF;
 
     struct PageTable *page_table =
-        paging_get_page_table(page_dir, page_directory_index);
+        get_page_table(page_dir, page_directory_index);
     if (page_table == NULL)
         return;
     uint32_t pfn = (uint32_t) physical_addr >> 12;
