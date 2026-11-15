@@ -17,7 +17,7 @@ SECTIONS {
 
     .text ALIGN (0x1000) : AT (ADDR (.text) - 0xC0000000)
     {
-        *(.text)                    /* all text sections from all files */
+        *(.text*)                    /* all text sections from all files */
     }
 
     .rodata ALIGN (0x1000) : AT (ADDR (.rodata) - 0xC0000000)
@@ -27,13 +27,13 @@ SECTIONS {
 
     .data ALIGN (0x1000) : AT (ADDR (.data) - 0xC0000000)
     {
-        *(.data)                    /* all data sections from all files */
+        *(.data*)                    /* all data sections from all files */
     }
 
     .bss ALIGN (0x1000) : AT (ADDR (.bss) - 0xC0000000)
     {
         *(COMMON)                   /* all COMMON sections from all files */
-        *(.bss)                     /* all bss sections from all files */
+        *(.bss*)                     /* all bss sections from all files */
 
         [a-z\/]*kernel-entrypoint.o(.bss)
         _linker_kernel_stack_top = .;
