@@ -29,8 +29,10 @@ struct PageManagerState page_manager_state = {
 
 struct PageDirectory *paging_get_current_page_directory_addr(void) {
     uint32_t current_page_directory_physical_addr;
-    __asm__ volatile("mov %%cr3, %0" : "=r"(current_page_directory_physical_addr));
-    return (struct PageDirectory *)(current_page_directory_physical_addr + KERNEL_VIRTUAL_BASE);
+    __asm__ volatile("mov %%cr3, %0"
+                     : "=r"(current_page_directory_physical_addr));
+    return (struct PageDirectory *) (current_page_directory_physical_addr +
+                                     KERNEL_VIRTUAL_BASE);
 }
 
 struct PageTable *paging_get_page_table(
@@ -63,8 +65,10 @@ struct PageTable *paging_get_page_table(
                 .read_write = true,
                 .user_supervisor = true,
             };
-            dir_entry->address_low = page_frame_number & 0xF; // addr low is the 4 lowest bits
-            dir_entry->address_high = (page_frame_number >> 4) & 0xFFFF; // addr high is the upper 16 bits
+            dir_entry->address_low =
+                page_frame_number & 0xF; // addr low is the 4 lowest bits
+            dir_entry->address_high = (page_frame_number >> 4) &
+                                      0xFFFF; // addr high is the upper 16 bits
             struct PageTable *page_table =
                 (struct PageTable *) (RECURSIVE_PAGE_TABLES_VIRTUAL_ADDRESS +
                                       page_directory_index * PAGE_FRAME_SIZE);
@@ -84,7 +88,7 @@ void update_page_directory_entry(
 ) {
     uint32_t page_directory_index = ((uint32_t) virtual_addr >> 22) & 0x3FF;
     uint32_t page_table_index = ((uint32_t) virtual_addr >> 12) & 0x3FF;
-    
+
     struct PageTable *page_table =
         paging_get_page_table(page_dir, page_directory_index);
     if (page_table == NULL)
