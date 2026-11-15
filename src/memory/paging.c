@@ -93,6 +93,7 @@ void update_page_directory_entry(
         get_page_table(page_dir, page_directory_index);
     if (page_table == NULL)
         return;
+    memset(&page_table->data[page_table_index], 0, sizeof(struct PageTableEntry));
     uint32_t pfn = (uint32_t) physical_addr >> 12;
     page_table->data[page_table_index].flags = flag;
     page_table->data[page_table_index].address_low = pfn & 0xF;
@@ -107,38 +108,38 @@ void flush_single_tlb(void *virtual_addr) {
                  : "memory");
 }
 
-// /* --- Memory Management --- */
-// // TODO: Implement
-// bool paging_allocate_check(uint32_t amount) {
-//     // TODO: Check whether requested amount is available
-//     return true;
-// }
+/* --- Memory Management --- */
+// TODO: Implement
+bool check_alloc(uint32_t amount) {
+    // TODO: Check whether requested amount is available
+    return true;
+}
 
-// bool paging_allocate_user_page_frame(
-//     struct PageDirectory *page_dir,
-//     void *virtual_addr
-// ) {
-//     /**
-//      * TODO: Find free physical frame and map virtual frame into it
-//      * - Find free physical frame in page_manager_state.page_frame_map[] using any strategies
-//      * - Mark page_manager_state.page_frame_map[]
-//      * - Update page directory with user flags:
-//      *     > present bit    true
-//      *     > write bit      true
-//      *     > user bit       true
-//      *     > pagesize 4 mb  true
-//      */
-//     return true;
-// }
+bool alloc_user_page_frame(
+    struct PageDirectory *page_dir,
+    void *virtual_addr
+) {
+    /**
+     * TODO: Find free physical frame and map virtual frame into it
+     * - Find free physical frame in page_manager_state.page_frame_map[] using any strategies
+     * - Mark page_manager_state.page_frame_map[]
+     * - Update page directory with user flags:
+     *     > present bit    true
+     *     > write bit      true
+     *     > user bit       true
+     *     > pagesize 4 mb  true
+     */
+    return true;
+}
 
-// bool paging_free_user_page_frame(
-//     struct PageDirectory *page_dir,
-//     void *virtual_addr
-// ) {
-//     /*
-//      * TODO: Deallocate a physical frame from respective virtual address
-//      * - Use the page_dir.table values to check mapped physical frame
-//      * - Remove the entry by setting it into 0
-//      */
-//     return true;
-// }
+bool free_user_page_frame(
+    struct PageDirectory *page_dir,
+    void *virtual_addr
+) {
+    /*
+     * TODO: Deallocate a physical frame from respective virtual address
+     * - Use the page_dir.table values to check mapped physical frame
+     * - Remove the entry by setting it into 0
+     */
+    return true;
+}
