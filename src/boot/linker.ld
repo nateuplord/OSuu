@@ -2,8 +2,8 @@ ENTRY(loader)                       /* the name of the entry label */
 SECTIONS {
     . = 0xC0100000;                 /* use relocation address at 0xC0100000 */
 
-    _linker_kernel_virtual_addr_start  = .;
-    _linker_kernel_physical_addr_start = . - 0xC0000000;
+    _linker_kernel_virt_addr_start  = .;
+    _linker_kernel_phys_addr_start = . - 0xC0000000;
 
     .multiboot ALIGN (0x1000) : AT (ADDR (.multiboot) - 0xC0000000)
     {
@@ -40,6 +40,6 @@ SECTIONS {
     }
 
     /* Linker variable that can be used in kernel */
-    _linker_kernel_virtual_addr_end = .;
-    _linker_kernel_physical_addr_end = . - 0xC0000000;
+    _linker_kernel_virt_addr_end = .;
+    _linker_kernel_phys_addr_end = . - 0xC0000000;
 }

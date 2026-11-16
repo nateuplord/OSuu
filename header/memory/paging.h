@@ -8,26 +8,26 @@
 /**
  * Note: MB often referring to MiB in context of memory management
  * change this to be a small number to test if swap working properly
- * kernel will be tested with a small number of SYSTEM_MEMORY_MB
+ * kernel will be tested with a small number of SYS_MEM_MB
  */
-#define SYSTEM_MEMORY_MB 128
+#define SYS_MEM_MB 128
 
 /// Number of entries in a page directory
-#define PAGE_ENTRY_COUNT 1024
+#define PG_ENTRY_COUNT 1024
 
 /// Page Frame (PF) Size: 4 KiB
-#define PAGE_FRAME_SIZE 0x1000u
+#define FRAME_SIZE 0x1000u
 
-#define KERNEL_RESERVED_PAGE_FRAME_COUNT (0x400000u / PAGE_FRAME_SIZE)
-#define RECURSIVE_PAGE_TABLES_VIRTUAL_ADDRESS 0xFFC00000u
-#define RECURSIVE_PAGE_DIRECTORY_INDEX 1023u
+#define KERNEL_RESERVED_FRAME_COUNT (0x400000u / FRAME_SIZE)
+#define RECURSIVE_PG_TABLES_VIRT_ADDR 0xFFC00000u
+#define RECURSIVE_PG_DIR_INDEX 1023u
 
 /// Maximum usable page frame. Default count: 128 MiB / 4 KiB = 32768 frames
-#define PAGE_FRAME_MAX_COUNT ((SYSTEM_MEMORY_MB << 20) / PAGE_FRAME_SIZE)
+#define FRAME_COUNT_MAX ((SYS_MEM_MB << 20) / FRAME_SIZE)
 
-/// kernel's  page directory, using 4 KiB pages
-extern struct PageDirectory _paging_kernel_page_directory;
-extern struct PageTable _paging_kernel_page_table;
+/// kernel's page directory, using 4 KiB pages
+extern struct PgDir _pg_kernel_pg_dir;
+extern struct PgTable _pg_kernel_pg_table;
 
 /**
  * Page directory entry flags
@@ -35,7 +35,7 @@ extern struct PageTable _paging_kernel_page_table;
  * @see [Intel Manual](https://www.intel.com/content/www/us/en/content-details/782158/intel-64-and-ia-32-architectures-software-developer-s-manual-combined-volumes-1-2a-2b-2c-2d-3a-3b-3c-3d-and-4.html):
  * - ch. 4: _Paging - Figure 4-4 PDE: 4KB page_
  */
-struct PageDirectoryEntryFlag {
+struct PgDirEntryFlags {
     /**
      * Presence in memory (P)
      *
@@ -106,7 +106,7 @@ struct PageDirectoryEntryFlag {
      * - `1`: Maps a 4 MB page directly
      * - `0`: Points to a page table (4 KB pages)
      */
-    uint32_t page_size : 1;
+    uint32_t pg_size : 1;
 } __attribute__((packed));
 
 /**
@@ -115,7 +115,7 @@ struct PageDirectoryEntryFlag {
  * @see [Intel Manual](https://www.intel.com/content/www/us/en/content-details/782158/intel-64-and-ia-32-architectures-software-developer-s-manual-combined-volumes-1-2a-2b-2c-2d-3a-3b-3c-3d-and-4.html):
  * - ch. 4: _Paging - Figure 4-4 PDE: 4KB page_
  */
-struct PageTableEntryFlag {
+struct PgTableEntryFlags {
     /**
      * Presence in memory (P)
      *
@@ -204,7 +204,7 @@ struct PageTableEntryFlag {
      * @note
      * Leave at 0 unless the PAT is set up (needs CPU support).
      */
-    uint32_t page_attr_table : 1;
+    uint32_t pg_attr_table : 1;
 } __attribute__((packed));
 
 /**
@@ -213,18 +213,18 @@ struct PageTableEntryFlag {
  * @see [Intel Manual](https://www.intel.com/content/www/us/en/content-details/782158/intel-64-and-ia-32-architectures-software-developer-s-manual-combined-volumes-1-2a-2b-2c-2d-3a-3b-3c-3d-and-4.html):
  * - ch. 4: _Paging - Figure 4-4 PDE: 4KB page_
  */
-struct PageDirectoryEntry {
+struct PgDirEntry {
     /// Entry flags
-    struct PageDirectoryEntryFlag flags;
+    struct PgDirEntryFlags flags;
 
     /// Ignored bits
     uint16_t ignored : 4;
 
     /// Lower 4 bits of the physical frame number
-    uint16_t address_low : 4;
+    uint16_t addr_low : 4;
 
     /// Upper 16 bits of the physical frame number
-    uint16_t address_high : 16;
+    uint16_t addr_high : 16;
 } __attribute__((packed));
 
 /**
@@ -232,9 +232,9 @@ struct PageDirectoryEntry {
  * @see [Intel Manual](https://www.intel.com/content/www/us/en/content-details/782158/intel-64-and-ia-32-architectures-software-developer-s-manual-combined-volumes-1-2a-2b-2c-2d-3a-3b-3c-3d-and-4.html):
  * - ch. 4: _Paging - Figure 4-4 PDE: 4KB page_
  */
-struct PageTableEntry {
+struct PgTableEntry {
     /// Entry flags
-    struct PageTableEntryFlag flags;
+    struct PgTableEntryFlags flags;
 
     /**
      * Global flag (G)
@@ -265,47 +265,47 @@ struct PageTableEntry {
  * This data structure is volatile (i.e. can be modified from outside this code).
  * > Check "C volatile keyword".
  */
-struct PageDirectory {
-    struct PageDirectoryEntry table[PAGE_ENTRY_COUNT];
+struct PgDir {
+    struct PgDirEntry table[PG_ENTRY_COUNT];
 } __attribute__((packed));
 
 /**
  *  A page table
  */
-struct PageTable {
-    struct PageTableEntry data[PAGE_ENTRY_COUNT];
+struct PgTable {
+    struct PgTableEntry data[PG_ENTRY_COUNT];
 } __attribute__((packed));
 
 /**
  * Page manager states.
  */
-struct PageManagerState {
-    bool page_frame_map[PAGE_FRAME_MAX_COUNT];
-    uint32_t free_page_frame_count;
+struct PgState {
+    bool map[FRAME_COUNT_MAX];
+    uint32_t freed;
 } __attribute__((packed));
 
-struct PageDirectory *get_current_page_directory_addr(void);
+struct PgDir *pg_get_cur_addr(void);
 
 /**
  * Edit page directory with respective parameter
  *
- * @param page_dir
+ * @param dir
  * Page directory to update
  *
- * @param physical_addr
+ * @param phys_dir
  * Physical address to map
  *
- * @param virtual_addr
+ * @param virt_addr
  * Virtual address to map
  *
- * @param flag
+ * @param flags
  * Page entry flags
  */
-void update_page_directory_entry(
-    struct PageDirectory *page_dir,
-    void *physical_addr,
-    void *virtual_addr,
-    struct PageTableEntryFlag flag
+void pg_update_entry(
+    struct PgDir *dir,
+    void *phys_dir,
+    void *virt_dir,
+    struct PgTableEntryFlags flags
 );
 
 /**
@@ -317,25 +317,25 @@ void update_page_directory_entry(
  *
  * @see [OSDev Wiki](https://wiki.osdev.org/Fractal_Page_Mapping)
  *
- * @param page_dir
+ * @param dir
  * Page directory to read
  *
- * @param page_directory_index
+ * @param dir_index
  * Page table's position/index on page directory
  *
  */
-struct PageTable *get_page_table(
-    struct PageDirectory *page_dir,
-    uint32_t page_directory_index
+struct PgTable *pg_get_table(
+    struct PgDir *dir,
+    uint32_t dir_index
 );
 
 /**
  * Invalidate page that contain virtual address in parameter
  *
- * @param virtual_addr
+ * @param virt_addr
  * Virtual address to flush
  */
-void flush_single_tlb(void *virtual_addr);
+void pg_flush_single_tlb(void *virt_addr);
 
 /* --- Memory Management --- */
 
@@ -348,40 +348,40 @@ void flush_single_tlb(void *virtual_addr);
  * @return
  * Returns true when there's enough free memory available
  */
-bool check_alloc(uint32_t amount);
+bool pg_check_alloc(uint32_t amount);
 
 /**
  * Allocate single user page frame in page directory
  *
- * @param page_dir
+ * @param dir
  * Page directory to update
  *
- * @param virtual_addr
+ * @param virt_addr
  * Virtual address to be allocated
  *
  * @return
  * Physical address of allocated frame
  */
-bool alloc_user_page_frame(
-    struct PageDirectory *page_dir,
-    void *virtual_addr
+bool pg_alloc_user_frame(
+    struct PgDir *dir,
+    void *virt_addr
 );
 
 /**
  * Deallocate single user page frame in page directory
  *
- * @param page_dir
+ * @param dir
  * Page directory to update
  *
- * @param virtual_addr
+ * @param virt_addr
  * Virtual address to be allocated
  *
  * @return
  * True if successfull, false otherwise
  */
-bool free_user_page_frame(
-    struct PageDirectory *page_dir,
-    void *virtual_addr
+bool pg_free_user_frame(
+    struct PgDir *dir,
+    void *virt_addr
 );
 
 #endif
