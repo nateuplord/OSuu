@@ -5,6 +5,7 @@
 #include "fs/ext2.h"
 #include "boot/kernel-entrypoint.h"
 #include "text/framebuffer.h"
+#include "memory/paging.h"
 #include <stdbool.h>
 #include <stdint.h>
 

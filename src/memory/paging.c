@@ -134,7 +134,7 @@ bool pg_alloc_user_frame(
     uint32_t pg_table_index = ((uint32_t) virt_addr >> 12) & 0x3FF;
 
     // a WHOLE BUNCH of checks
-    if (pg_dir_index = RECURSIVE_PG_DIR_INDEX) return false;
+    if (pg_dir_index == RECURSIVE_PG_DIR_INDEX) return false;
 
     // ensure 2nd level page table exists (allocates one if PDE not present)
     struct PgTable *pg_table = pg_get_table(dir, pg_dir_index);
