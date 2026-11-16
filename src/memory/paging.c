@@ -119,8 +119,8 @@ void pg_flush_single_tlb(void *virt_addr) {
 /* --- Memory Management --- */
 // TODO: Implement
 bool pg_check_alloc(uint32_t amount) {
-    // TODO: Check whether requested amount is available
-    return true;
+    uint32_t required_frames = (amount + FRAME_SIZE - 1) / FRAME_SIZE;
+    return state.freed >= required_frames;
 }
 
 bool pg_alloc_user_frame(
