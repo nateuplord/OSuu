@@ -261,9 +261,10 @@ struct PgTableEntry {
 
 /**
  * A page directory
+ *
  * @note
  * This data structure is volatile (i.e. can be modified from outside this code).
- * > Check "C volatile keyword".
+ * > Check "C volatile" keyword.
  */
 struct PgDir {
     struct PgDirEntry table[PG_ENTRY_COUNT];
