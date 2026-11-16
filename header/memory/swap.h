@@ -39,7 +39,7 @@ void swap_out(
 /**
  * read page fault address from cr2
  */
-uint32_t read_cr2() {
+static inline uint32_t read_cr2() {
     uint32_t fault_address;
     __asm__ volatile("mov %%cr2, %0"
                      : "=r"(fault_address));
