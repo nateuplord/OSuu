@@ -21,15 +21,6 @@ header_start:
     dd header_end - header_start     ; header_length
     dd CHECKSUM2
 
-    ; framebuffer request tag
-    align 8
-    dw 5            ; type = framebuffer
-    dw 1            ; flags = optional
-    dd 20           ; size = 8 (tag header) + 12 (width+height+depth)
-    dd 640          ; width
-    dd 480          ; height
-    dd 8            ; depth
-
     ; terminating tag
     align 8
     dw 0

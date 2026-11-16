@@ -1,5 +1,4 @@
 #include "text/framebuffer.h"
-#include "cpu/portio.h"
 // #include "stdlib/string.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -158,12 +157,12 @@ static const uint8_t font8x8_basic[128][8] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // 0x7F (DEL)
 };
 
-void framebuffer_init(struct MultibootInfo *mb_info) {
-    fb_addr = (uint8_t *) (uint32_t) mb_info->framebuffer_addr;
-    fb_pitch = mb_info->framebuffer_pitch;
-    fb_width = mb_info->framebuffer_width;
-    fb_height = mb_info->framebuffer_height;
-    fb_bpp = mb_info->framebuffer_bpp;
+void framebuffer_init(struct VbeModeInfo *info) {
+    fb_addr = (uint8_t *) info->framebuffer_addr;
+    fb_pitch = info->pitch;
+    fb_width = info->width;
+    fb_height = info->height;
+    fb_bpp = info->bpp;
 }
 
 void putpixel(

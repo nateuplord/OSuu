@@ -3,44 +3,15 @@
 
 #include <stdint.h>
 
-struct MultibootInfo {
-    uint32_t flags;
+// Using references from https://wiki.osdev.org/Multiboot#Multiboot_2
+struct Multiboot2Info {
+    uint32_t total_size;
+    uint32_t reserved;
+} __attribute__((packed));
 
-    uint32_t mem_lower;
-    uint32_t mem_upper;
-
-    uint32_t boot_device;
-    uint32_t cmdline;
-
-    uint32_t mods_count;
-    uint32_t mods_addr;
-
-    uint32_t syms[4]; // a.out or ELF section-header fields, unused here
-
-    uint32_t mmap_length;
-    uint32_t mmap_addr;
-
-    uint32_t drives_length;
-    uint32_t drives_addr;
-
-    uint32_t config_table;
-    uint32_t boot_loader_name;
-    uint32_t apm_table;
-
-    uint32_t vbe_control_info;
-    uint32_t vbe_mode_info;
-    uint16_t vbe_mode;
-    uint16_t vbe_interface_seg;
-    uint16_t vbe_interface_off;
-    uint16_t vbe_interface_len;
-
-    uint64_t framebuffer_addr;
-    uint32_t framebuffer_pitch;
-    uint32_t framebuffer_width;
-    uint32_t framebuffer_height;
-    uint8_t framebuffer_bpp;
-    uint8_t framebuffer_type; // 0 = indexed, 1 = direct RGB, 2 = EGA text
-    uint8_t color_info[6];    // layout depends on framebuffer_type
+struct Multiboot2Tag {
+    uint32_t type;
+    uint32_t size;
 } __attribute__((packed));
 
 #endif

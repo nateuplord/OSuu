@@ -1,5 +1,6 @@
 #include "boot/kernel-entrypoint.h"
 #include "boot/multiboot.h"
+#include "boot/vbe.h"
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
@@ -33,19 +34,23 @@ static void handle_backspace(void) {
     }
 }
 
-void kernel_setup(struct MultibootInfo *mb_info) {
+void kernel_setup(struct Multiboot2Info *mb_info) {
     load_gdt(&gdtr);
     pic_remap();
     initialize_filesystem_ext2();
     initialize_idt();
 
-    // Check if multiboot linear graphics mode ever fails
-    if (!(mb_info->flags & 0x1000)) {
+    (void) mb_info; // no longer used - video mode is set directly via VBE, not read from multiboot
+
+    struct VbeModeInfo vbe_info;
+    if (!vbe_set_mode(0x101, &vbe_info)) {
         // if fails, then display white E on red bg
         volatile uint16_t *vga = (volatile uint16_t *) 0xB8000;
         vga[0] = (0x4F << 8) | 'E';
         return;
     }
+
+    framebuffer_init(&vbe_info);
 
     activate_keyboard_interrupt();
     framebuffer_clear();

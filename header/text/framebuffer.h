@@ -1,7 +1,7 @@
 #ifndef _FRAMEBUFFER_H
 #define _FRAMEBUFFER_H
 
-#include "boot/multiboot.h"
+#include "boot/vbe.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,32 +10,25 @@
  * Terminal framebuffer
  *
  * @details
- * Starting at `FRAMEBUFFER_MEMORY_OFFSET`,
- * - Even number memory: Character, 8-bit
- * - Odd number memory: Character color lower 4-bit, Background color upper 4-bit
- *
- * @note Resolution is 80x25
+ * Text is rendered as 8x8 glyphs onto the linear graphics framebuffer set up
+ * by vbe_set_mode() (640x480, 8bpp indexed), giving a character grid of
+ * FRAMEBUFFER_WIDTH x FRAMEBUFFER_HEIGHT cells (640/8 x 480/8).
  */
-#define FRAMEBUFFER_MEMORY_OFFSET ((uint8_t *) 0xB8000)
-#define CURSOR_PORT_CMD 0x03D4
-#define CURSOR_PORT_DATA 0x03D5
-
 #define FRAMEBUFFER_WIDTH 80
-#define FRAMEBUFFER_HEIGHT 25
+#define FRAMEBUFFER_HEIGHT 60
 
 /**
  * Initialize the framebuffer driver with the linear graphics framebuffer
- * info GRUB reported for the mode requested via the multiboot header.
+ * info returned by vbe_set_mode().
  *
  * @details
  * Must be called once, before any other framebuffer_* function, and only
- * after confirming `mb_info->flags` has the framebuffer-info bit (0x1000)
- * set - otherwise the fields below are not valid.
+ * after a successful vbe_set_mode() call.
  *
- * @param mb_info
- * Multiboot info structure passed by GRUB in `ebx` at boot
+ * @param info
+ * Mode info filled in by vbe_set_mode()
  */
-void framebuffer_init(struct MultibootInfo *mb_info);
+void framebuffer_init(struct VbeModeInfo *info);
 
 /**
  * Set a single pixel's color in the linear graphics framebuffer.
