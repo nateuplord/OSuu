@@ -1,6 +1,7 @@
 #ifndef _SWAP_H
 #define _SWAP_H
 
+#include "driver/disk.h"
 #include "memory/paging.h"
 #include <stdbool.h>
 #include <stddef.h>
