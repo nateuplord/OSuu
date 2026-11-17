@@ -14,6 +14,37 @@ bool swap_in(
     struct PgDir *page_dir,
     void *virtual_addr
 ) {
+    // Calc indexes
+    uint32_t v_addr = (uint32_t) virtual_addr;
+    uint32_t dir_idx = v_addr >> 22;
+    uint32_t table_idx = (v_addr >> 12) & 0x3FF;
+
+    struct PgTable *table = pg_get_table(page_dir, dir_idx);
+    if (!table)
+        return false;
+
+    struct PgTableEntry *pte = &table->data[table_idx];
+
+    if (!is_page_swapped(pte))
+        return false;
+
+    uint16_t swap_slot = get_swap_slot(pte);
+
+    if (!pg_alloc_user_frame(page_dir, virtual_addr))
+        return false;
+
+    uint32_t lba_start = SWAP_PARTITION_START_LBA + (swap_slot * 8);
+
+    void *page = (void *) ((uint32_t) virtual_addr & ~(FRAME_SIZE - 1));
+    read_blocks(page, lba_start, 8);
+
+    swap_manager.swap_used[swap_slot] = false;
+    swap_manager.free_count++;
+
+    // Flush the TLB
+    pg_flush_single_tlb(virtual_addr);
+
+    return true;
 }
 
 bool swap_out(
