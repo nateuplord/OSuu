@@ -385,4 +385,9 @@ bool pg_free_user_frame(
     void *virt_addr
 );
 
+/**
+ * Free a single frame from the physical address
+*/
+void pg_free_frame_num(uint32_t frame_num);
+
 #endif
