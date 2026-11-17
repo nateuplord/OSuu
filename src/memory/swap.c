@@ -2,6 +2,8 @@
 #include "memory/paging.h"
 #include <stdint.h>
 
+struct SwapManager swap_manager;
+
 // Dir indexes 0..767 are user space (768 == KERNEL_VIRT_BASE >> 22); never evict kernel pages.
 #define USER_PG_DIR_COUNT 768
 

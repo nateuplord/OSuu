@@ -20,6 +20,12 @@ struct SwapManager {
 extern struct SwapManager swap_manager;
 
 /**
+ * Initialize the swap manager: all slots free.
+ * Must be called once before any swap_in/swap_out/handle_page_fault use.
+ */
+void swap_init(void);
+
+/**
  * Read and put frame back to memory
  * @param page_dir        Page directory to read
  * @param virtual_addr    Virtual Address that caused page fault

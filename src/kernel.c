@@ -6,6 +6,7 @@
 #include "boot/kernel-entrypoint.h"
 #include "text/framebuffer.h"
 #include "memory/paging.h"
+#include "memory/swap.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -37,6 +38,7 @@ void kernel_setup(void) {
     load_gdt(&gdtr);
     pic_remap();
     initialize_filesystem_ext2();
+    swap_init();
     initialize_idt();
 
     activate_keyboard_interrupt();
