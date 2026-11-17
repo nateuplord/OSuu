@@ -69,7 +69,7 @@ iso: kernel
 DISK_NAME = storage
 
 disk:
-	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
+	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 5M
 
 # paging testing
 # debugpaging: clean build
