@@ -2,6 +2,39 @@
 #include "memory/paging.h"
 #include <stdint.h>
 
+// Dir indexes 0..767 are user space (768 == KERNEL_VIRT_BASE >> 22); never evict kernel pages.
+#define USER_PG_DIR_COUNT 768
+
+// Helper func to handle Out Of Memory by evicting a page
+static bool evict_page_to_swap(struct PgDir *dir) {
+    // Brutal FIFO/Scan: find the first present user page and swap it out
+    for (uint32_t d = 0; d < USER_PG_DIR_COUNT; d++) {
+        // Check presence directly first - pg_get_table() allocates a brand
+        // new page table as a side effect when one doesn't exist yet, which
+        // would burn exactly the frames we're trying to reclaim.
+        if (!dir->table[d].flags.present) {
+            continue;
+        }
+
+        struct PgTable *table = pg_get_table(dir, d);
+        if (!table)
+            continue;
+
+        for (uint32_t t = 0; t < PG_ENTRY_COUNT; t++) {
+            struct PgTableEntry *pte = &table->data[t];
+            if (pte->flags.present == 1) {
+                // Reconstruct the victim's virtual address
+                void *victim_vaddr = (void *) ((d << 22) | (t << 12));
+
+                if (swap_out(dir, victim_vaddr)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false; // Total system failure, out of RAM && Swap Space
+}
+
 // Initializes the struct SwapManager
 void swap_init(void) {
     for (uint32_t i = 0; i < PAGE_FRAME_ON_SWAP_MAX_COUNT; i++) {
@@ -108,4 +141,59 @@ bool swap_out(
     return true;
 }
 
-void handle_page_fault(uint32_t error_code);
+void handle_page_fault(uint32_t error_code) {
+    // Get the faulting v_addr and curr page dir
+    void *faulting_addr = read_cr2();
+    struct PgDir *pg_dir = pg_get_cur_addr();
+
+    bool present = (error_code & 0x1);
+    bool is_write = (error_code & 0x2);
+    bool is_user = (error_code & 0x4);
+
+    uint32_t v_addr = (uint32_t) faulting_addr;
+    uint32_t dir_idx = v_addr >> 22;
+    uint32_t table_idx = (v_addr >> 12) & 0x3FF;
+
+    struct PgTable *table = pg_get_table(pg_dir, dir_idx);
+    if (!table) {
+        // No page table at all for this region: truly unmapped access.
+        // TODO: segfault / kill the process
+        return;
+    }
+
+    struct PgTableEntry *pte = &table->data[table_idx];
+
+    if (!present) {
+        // Non-present fault: either swapped out, or first-time demand paging.
+        if (is_page_swapped(pte)) {
+            // Page is on disk, move it back to RAM
+            while (!swap_in(pg_dir, faulting_addr)) {
+                // If swap in failed, RAM is completely full, we must evict a different page to make room
+                if (!evict_page_to_swap(pg_dir)) {
+                    // Out of RAM and out of swap space.
+                    // TODO: kernel panic / kill the process
+                    return;
+                }
+            }
+            return;
+        }
+
+        // Case B: demand paging (first time access)
+        while (!pg_alloc_user_frame(pg_dir, faulting_addr)) {
+            // If allocation failed, RAM is full. Evict a page.
+            if (!evict_page_to_swap(pg_dir)) {
+                // TODO: kernel panic / kill the process
+                return;
+            }
+        }
+    } else {
+        // Case C: Protection Violation (error_code & 0x1 == 1)
+        // i.e writing to read only memory. Segfault the user process
+        if (is_user && !pte->flags.user_supervisor) {
+            // User mode tried to touch Ring 0 (Kernel) memory.
+            // TODO: Terminate process with SIGSEGV (Segmentation Fault).
+        } else if (is_write && !pte->flags.read_write) {
+            // TODO: Terminate process with SIGSEGV (Segmentation Fault).
+        }
+    }
+}
