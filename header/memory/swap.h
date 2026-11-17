@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define SWAP_PARTITION_START_LBA 8192 // Start of swap sector based on 5MiB
+
 #define PAGE_FRAME_ON_SWAP_MAX_COUNT                                           \
     10 //can be changed to be as many as you want.
 
