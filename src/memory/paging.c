@@ -119,35 +119,96 @@ void pg_flush_single_tlb(void *virt_addr) {
 /* --- Memory Management --- */
 // TODO: Implement
 bool pg_check_alloc(uint32_t amount) {
-    // TODO: Check whether requested amount is available
-    return true;
+    uint32_t required_frames = (amount + FRAME_SIZE - 1) / FRAME_SIZE;
+    return state.freed >= required_frames;
 }
 
 bool pg_alloc_user_frame(
     struct PgDir *dir,
     void *virt_addr
 ) {
-    /**
-     * TODO: Find free physical frame and map virtual frame into it
-     * - Find free physical frame in page_manager_state.page_frame_map[] using any strategies
-     * - Mark page_manager_state.page_frame_map[]
-     * - Update page directory with user flags:
-     *     > present bit    true
-     *     > write bit      true
-     *     > user bit       true
-     *     > pagesize 4 mb  true
-     */
-    return true;
+    if (dir == NULL)
+        return false;
+
+    // get physical address index
+    uint32_t pg_dir_index = ((uint32_t) virt_addr >> 22) & 0x3FF;
+    uint32_t pg_table_index = ((uint32_t) virt_addr >> 12) & 0x3FF;
+
+    // a WHOLE BUNCH of checks
+    if (pg_dir_index == RECURSIVE_PG_DIR_INDEX)
+        return false;
+
+    // ensure 2nd level page table exists (allocates one if PDE not present)
+    struct PgTable *pg_table = pg_get_table(dir, pg_dir_index);
+    if (pg_table == NULL)
+        return false;
+
+    // prevent writing to an already mapped page
+    if (pg_table->data[pg_table_index].flags.present)
+        return false;
+
+    // find a free physical frame
+    for (
+        uint32_t pfn = KERNEL_RESERVED_FRAME_COUNT; pfn < FRAME_COUNT_MAX; pfn++
+    ) {
+        if (!state.map[pfn]) {
+            state.map[pfn] = true;
+            state.freed--;
+
+            void *phys_addr = (void *) (pfn * FRAME_SIZE);
+            struct PgTableEntryFlags user_flag = {
+                .present = true, .read_write = true, .user_supervisor = true
+            };
+
+            pg_update_entry(dir, phys_addr, virt_addr, user_flag);
+
+            // remove stale data from newly mapped 4 KiB page
+            memset((void *) ((uint32_t) virt_addr & ~0xFFFu), 0, FRAME_SIZE);
+            return true;
+        }
+    }
+    return false;
 }
 
 bool pg_free_user_frame(
     struct PgDir *dir,
     void *virt_addr
 ) {
-    /*
-     * TODO: Deallocate a physical frame from respective virtual address
-     * - Use the page_dir.table values to check mapped physical frame
-     * - Remove the entry by setting it into 0
-     */
+    if (dir == NULL)
+        return false;
+
+    uint32_t pg_dir_index = ((uint32_t) virt_addr >> 22) & 0x3FF;
+    uint32_t pg_table_index = ((uint32_t) virt_addr >> 12) & 0x3FF;
+
+    // a WHOLE BUNCH of checks
+    if (pg_dir_index == RECURSIVE_PG_DIR_INDEX)
+        return false;
+
+    // PDE & PTE must not be absent
+    if (!dir->table[pg_dir_index].flags.present)
+        return false;
+    struct PgTable *pg_table = pg_get_table(dir, pg_dir_index);
+    if (pg_table == NULL)
+        return false; // PDE check
+    struct PgTableEntry *pte = &pg_table->data[pg_table_index];
+    if (!pte->flags.present)
+        return false; // PTE check
+
+    uint32_t pfn =
+        ((uint32_t) pte->address_high << 4) | (pte->address_low & 0xF);
+    if (pfn < KERNEL_RESERVED_FRAME_COUNT || pfn >= FRAME_COUNT_MAX ||
+        !state.map[pfn])
+        return false; // check of
+
+    // freeing the frame
+    state.map[pfn] = false;
+    state.freed++;
+    memset(pte, 0, sizeof(struct PgTableEntry));
+    pg_flush_single_tlb(virt_addr);
     return true;
+}
+
+void pg_free_frame_num(uint32_t frame_num) {
+    state.map[frame_num] = false;
+    ++state.freed;
 }

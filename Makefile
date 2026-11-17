@@ -69,4 +69,8 @@ iso: kernel
 DISK_NAME = storage
 
 disk:
-	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
+	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 5M
+
+# paging testing
+# debugpaging: clean build
+# 	qemu-system-i386 -s -S -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk,cache=directsync -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
