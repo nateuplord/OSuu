@@ -35,7 +35,7 @@ header_end:
 ; start of the text (code) section
 section .setup.text
 
-loader equ (loader_entrypoint - KERNEL_VIRT_BASE)
+loader equ loader_entrypoint
 
 ; the loader label (defined as entry point in linker script)
 loader_entrypoint:
@@ -91,10 +91,9 @@ loader_entrypoint:
     lea eax, [loader_virtual]
     jmp eax
 
+section .text
+
 loader_virtual:
-    mov dword [_pg_kernel_pg_dir], 0
-    mov eax, cr3
-    mov cr3, eax                                    ; Delete identity mapping and invalidate TLB cache for first page
     mov esp, kernel_stack + KERNEL_STACK_SIZE       ; Setup stack register to proper location
     push ebx                                        ; multiboot2 info pointer (unused for now)
     call kernel_setup

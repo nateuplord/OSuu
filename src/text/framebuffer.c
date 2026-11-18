@@ -1,4 +1,5 @@
 #include "text/framebuffer.h"
+#include "memory/paging.h"
 // #include "stdlib/string.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -163,6 +164,21 @@ void framebuffer_init(struct VbeModeInfo *info) {
     fb_width = info->width;
     fb_height = info->height;
     fb_bpp = info->bpp;
+
+    uint32_t fb_base = (uint32_t) fb_addr & ~(FRAME_SIZE - 1);
+    uint32_t fb_bytes = fb_pitch * fb_height;
+    uint32_t fb_pages = (fb_bytes + FRAME_SIZE - 1) / FRAME_SIZE;
+
+    struct PgTableEntryFlags mmio_flags = {
+        .present = true,
+        .read_write = true,
+        .user_supervisor = false,
+    };
+
+    for (uint32_t i = 0; i < fb_pages; ++i) {
+        void *addr = (void *) (fb_base + i * FRAME_SIZE);
+        pg_update_entry(pg_get_cur_addr(), addr, addr, mmio_flags);
+    }
 }
 
 void putpixel(

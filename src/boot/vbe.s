@@ -6,14 +6,6 @@ extern realmode_start
 extern realmode_size
 extern realmode_lma
 
-; bool vbe_set_mode(uint16_t mode, struct VbeModeInfo *out)
-;
-; The real work happens in the .realmode section below, which the linker
-; script places at VMA 0x9000 (so its own jumps/data references resolve to
-; small, 16-bit-representable offsets) while keeping its bytes stored
-; sequentially in the file at realmode_lma. This function copies it from
-; realmode_lma to realmode_start (0x9000) at runtime, jumps there, and reads
-; the results back once it returns.
 vbe_set_mode:
     push ebp
     mov ebp, esp
@@ -89,12 +81,6 @@ vbe_saved_out:  dd 0
 vbe_saved_idtr: dw 0
                 dd 0
 
-; ===================== real-mode trampoline =====================
-; Linked at VMA 0x9000 (see linker.ld), physically run from there after
-; vbe_set_mode copies it down. vbe_trampoline: is this section's own first
-; label (not relying on realmode_start lining up byte-for-byte), and acts
-; as the local-label scope anchor for .fail/.back_to_pm below - this
-; section has no enclosing function label the way vbe_set_mode did above.
 section .realmode
 bits 16
 
@@ -105,7 +91,7 @@ vbe_trampoline:
     mov ss, ax
 
     mov eax, cr0
-    and eax, 0xFFFFFFFE              ; clear PE
+    and eax, 0x7FFFFFFE              ; clear PE and PG - real mode can't have paging active
     mov cr0, eax
 
     jmp 0x0000:.enter_realmode        ; flush prefetch queue, CS becomes a real-mode segment
@@ -118,13 +104,6 @@ vbe_trampoline:
     mov sp, 0x7C00                    ; scratch real-mode stack
 
     lidt [.idt_ptr]                    ; real-mode IVT: base 0, limit 0x3FF
-    ; deliberately staying cli'd here - the PIC is already remapped to
-    ; vectors 0x20+ by this point (pic_remap, called earlier in
-    ; kernel_setup), so a hardware IRQ firing against this real-mode IVT
-    ; would jump to a bogus/unmapped entry and likely triple-fault. The
-    ; VBE calls below are simple synchronous BIOS calls that don't need
-    ; interrupts enabled.
-
     mov [.mode_number], cx             ; stash inputs (cx/edi are about to be reused)
     mov [.return_addr], edi
 
@@ -151,19 +130,9 @@ vbe_trampoline:
 .back_to_pm:
     cli
     mov eax, cr0
-    or eax, 1                            ; set PE
-    mov cr0, eax
+    or eax, 0x80000001                   ; set PE and PG - CR3 was never touched, so
+    mov cr0, eax                         ; the same higher-half mappings come right back
 
-    ; A memory-based far jump (e.g. "jmp dword far [esp]") would need to
-    ; read its far pointer via ss (implicitly, through esp) - but ss is
-    ; still 0 here, and the instant PE is set, 0 means the null descriptor,
-    ; not "a valid real-mode segment" anymore. Any such memory access
-    ; faults, and with no protected-mode IDT loaded yet, that cascades into
-    ; a triple fault. So: use an IMMEDIATE far jump instead (no memory
-    ; access, no segment dependency at all) to a label in this same
-    ; low-address section, reload segments safely there (mov ds/es/ss
-    ; never touches memory), and finish with a register-indirect jump
-    ; (edi already holds the return address - also no memory operand).
     jmp 0x08:.finish_32bit                ; GDT_KERNEL_CODE_SEGMENT_SELECTOR
 
 [bits 32]
