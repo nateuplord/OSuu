@@ -1,9 +1,11 @@
+#include "boot/kernel-entrypoint.h"
+#include "boot/multiboot.h"
+#include "boot/vbe.h"
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
-#include "boot/kernel-entrypoint.h"
 #include "text/framebuffer.h"
 #include "memory/paging.h"
 #include "memory/swap.h"
@@ -34,12 +36,24 @@ static void handle_backspace(void) {
     }
 }
 
-void kernel_setup(void) {
+void kernel_setup(struct Multiboot2Info *mb_info) {
     load_gdt(&gdtr);
     pic_remap();
     initialize_filesystem_ext2();
     swap_init();
     initialize_idt();
+
+    (void) mb_info; // no longer used - video mode is set directly via VBE, not read from multiboot
+
+    struct VbeModeInfo vbe_info;
+    if (!vbe_set_mode(0x101, &vbe_info)) {
+        // if fails, then display white E on red bg
+        volatile uint16_t *vga = (volatile uint16_t *) 0xB8000;
+        vga[0] = (0x4F << 8) | 'E';
+        return;
+    }
+
+    framebuffer_init(&vbe_info);
 
     activate_keyboard_interrupt();
     framebuffer_clear();

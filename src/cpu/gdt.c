@@ -55,7 +55,34 @@ struct GlobalDescriptorTable gdt = {
             .granularity = 1,
             .base_high = 0,
         },
-        {0},
+        {
+            .segment_low = 0xFFFF,
+            .base_low = 0,
+            .type_bit = 0xA,
+            .non_system = 1,
+            .dpl = 0,
+            .seg_present = 1,
+            .segment_high = 0xF,
+            .avl = 0,
+            .code_seg = 0,
+            .op_size = 0,
+            .granularity = 1,
+            .base_high = 0,
+        },
+        {
+            .segment_low = 0xFFFF,
+            .base_low = 0,
+            .type_bit = 0x2,
+            .non_system = 1,
+            .dpl = 0,
+            .seg_present = 1,
+            .segment_high = 0xF,
+            .avl = 0,
+            .code_seg = 0,
+            .op_size = 0,
+            .granularity = 1,
+            .base_high = 0,
+        }
     }
 };
 
