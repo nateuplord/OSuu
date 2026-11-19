@@ -1,6 +1,10 @@
 #include "cpu/scheduling.h"
 #include <stddef.h>
 
+static Queue ready;
+static Queue waiting;
+static PCB *running = NULL;
+
 Queue make_queue() {
     Queue q;
     for (int i=0; i<QUEUE_CAPACITY; i++) {
