@@ -23,20 +23,35 @@ call_generic_handler:
     ; CPURegister.general & CPURegister.index
     pushad
 
-    ; Set segment registers to kernel_code before handling interrupt
+    ; Need to manipulate several registers first, borrow eax as temp variable
+    pushf
     push eax
+
+    mov eax, [esp+52]            ; Get ds register / segment selector for data
+    and eax, 0x3                 ; Check intra / inter privilege (sets ZF flag)
+    jz  segment_register_setup   ; Skip esp manipulation if intra-privilege
+
+interprivilege_interrupt:
+    ; Inter-privilege: get user esp from the x86 interrupt stack
+    mov eax, [esp+76]
+    mov [esp+20], eax
+
+segment_register_setup:
+    ; Set segment registers to kernel data before handling interrupt
     mov ax, 0x10
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
     pop eax
+    popf
 
-    ; Call the C function
+    ; Use the current esp as base stack frame for main_interrupt_handler()
+    mov ebp, esp
     call main_interrupt_handler
 
     ; Restore general-purpose & index register
-    popad
+    popad   ; Note: this is not fully symmetric with pushad; esp value is skipped
 
     ; Restore segment registers
     pop gs
@@ -52,7 +67,6 @@ call_generic_handler:
     ; [esp], [esp+4], [esp+8]
     ;   eip,   cs,    eflags
     ; Improper value will cause invalid return address & register
-    sti
     iret
 
 
