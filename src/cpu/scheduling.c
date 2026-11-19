@@ -40,3 +40,10 @@ int start_scheduling() {
     running = NULL;
     return 0;
 }
+
+int queue_to_queue(Queue *q1, Queue *q2) {
+    PCB *block;
+    if (pop(q1, block)) return 1;
+    if (push(q2, block)) return 1;
+    return 0;
+}
