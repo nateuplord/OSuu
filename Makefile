@@ -25,7 +25,7 @@ ASM_SRC := $(shell find $(SOURCE_FOLDER) -name '*.s')
 OBJS    := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
            $(ASM_SRC:$(SOURCE_FOLDER)/%.s=$(OUTPUT_FOLDER)/%.o)
 
-.PHONY: run clean build kernel iso disk test-sample
+.PHONY: run clean build kernel iso disk test-sample inserter
 
 SAMPLE_IMAGE = .kit/ch2/sample-image.bin
 
@@ -38,7 +38,7 @@ test-sample: clean build
 
 clean:
 # @rm -rf $(OUTPUT_FOLDER)/*
-	@rm -rf *.o *.iso $(OUTPUT_FOLDER)/cpu/ $(OUTPUT_FOLDER)/driver/ $(OUTPUT_FOLDER)/stdlib/ $(OUTPUT_FOLDER)/text/
+	@rm -rf *.o *.iso $(OUTPUT_FOLDER)/cpu/ $(OUTPUT_FOLDER)/driver/ $(OUTPUT_FOLDER)/stdlib/ $(OUTPUT_FOLDER)/text/ $(OUTPUT_FOLDER)/inserter
 
 build: iso
 
@@ -70,6 +70,19 @@ DISK_NAME = storage
 
 disk:
 	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 5M
+
+# Host-side tool: inject a file into the ext2 disk image
+HOST_CC       = gcc
+HOST_CFLAGS   = -std=c11 -Wall -Wextra -I$(HEADER_FOLDER)
+INSERTER_SRC  = tools/inserter/external-inserter.c \
+                $(SOURCE_FOLDER)/fs/ext2.c \
+                $(SOURCE_FOLDER)/stdlib/string.c
+
+inserter: bin/inserter
+
+bin/inserter: $(INSERTER_SRC)
+	@mkdir -p $(OUTPUT_FOLDER)
+	@$(HOST_CC) $(HOST_CFLAGS) $(INSERTER_SRC) -o $@
 
 # paging testing
 # debugpaging: clean build

@@ -131,6 +131,7 @@ int main(
         fprintf(stderr, "inserter: cannot open storage '%s'\n", storage_path);
         goto cleanup;
     }
+    
     if (fread(image_storage, DISK_SPACE, 1, disk_file) != 1) {
         fprintf(
             stderr, "inserter: storage must be at least %u bytes\n", DISK_SPACE
@@ -143,10 +144,12 @@ int main(
         fprintf(stderr, "inserter: cannot open input file '%s'\n", target_path);
         goto cleanup;
     }
+    
     if (fseek(input_file, 0, SEEK_END) != 0) {
         fprintf(stderr, "inserter: cannot seek input file\n");
         goto cleanup;
     }
+
     long file_size = ftell(input_file);
     if (file_size < 0 || (uint32_t) file_size > DISK_SPACE) {
         fprintf(stderr, "inserter: input file is too large\n");
@@ -180,6 +183,7 @@ int main(
             retcode = write(&request);
         }
     }
+
     if (retcode != 0) {
         fprintf(stderr, "inserter: %s\n", status_message(retcode));
         goto cleanup;
