@@ -1,12 +1,12 @@
+#include "boot/kernel-entrypoint.h"
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
-#include "boot/kernel-entrypoint.h"
-#include "text/framebuffer.h"
 #include "memory/paging.h"
 #include "memory/swap.h"
+#include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stdint.h>
 
