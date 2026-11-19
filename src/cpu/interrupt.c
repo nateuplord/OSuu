@@ -1,6 +1,7 @@
 #include "cpu/interrupt.h"
 #include "cpu/portio.h"
 #include "driver/keyboard.h"
+#include "driver/pit.h"
 #include "memory/swap.h"
 
 void io_wait(void) {
@@ -55,6 +56,9 @@ void activate_keyboard_interrupt(void) {
 
 void main_interrupt_handler(struct InterruptFrame frame) {
     switch (frame.int_number) {
+        case PIC1_OFFSET + IRQ_TIMER:
+            pit_isr();
+            break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
             break;
