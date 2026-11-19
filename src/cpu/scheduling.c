@@ -33,3 +33,10 @@ int pop(Queue *q, PCB *block) {
     }
     return 0;
 }
+
+int start_scheduling() {
+    ready = make_queue();
+    waiting = make_queue();
+    running = NULL;
+    return 0;
+}
