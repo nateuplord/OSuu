@@ -627,6 +627,9 @@ void allocate_node_blocks(
     uint32_t prefered_bgd
 );
 
+/** Load an inode's metadata from the filesystem. */
+void get_node(struct EXT2Inode *node, uint32_t inode);
+
 /**
  * Update the node to the disk.
  *
