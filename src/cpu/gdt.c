@@ -1,4 +1,6 @@
 #include "cpu/gdt.h"
+#include "cpu/interrupt.h"
+#include <stdint.h>
 
 /**
  * Predefined GDT.
@@ -9,7 +11,7 @@
  * - [OSDev Wiki](https://wiki.osdev.org/)
  *
  * Table entry:
- * `[{Null Descriptor}, {Kernel Code}, {Kernel Data (variable, etc)}, ...].`
+ * `[{Null}, {Kernel Code}, {Kernel Data}, {User Code}, {User Data}, {TSS}].`
  */
 struct GlobalDescriptorTable gdt = {
     .table = {
@@ -55,7 +57,35 @@ struct GlobalDescriptorTable gdt = {
             .granularity = 1,
             .base_high = 0,
         },
-        {0},
+        {
+            .segment_low = 0xFFFF,
+            .base_low = 0,
+            .type_bit = 0xA,
+            .non_system = 1,
+            .dpl = 3,
+            .seg_present = 1,
+            .segment_high = 0xF,
+            .avl = 0,
+            .code_seg = 0,
+            .op_size = 1,
+            .granularity = 1,
+            .base_high = 0,
+        },
+        {
+            .segment_low = 0xFFFF,
+            .base_low = 0,
+            .type_bit = 0x2,
+            .non_system = 1,
+            .dpl = 3,
+            .seg_present = 1,
+            .segment_high = 0xF,
+            .avl = 0,
+            .code_seg = 0,
+            .op_size = 1,
+            .granularity = 1,
+            .base_high = 0,
+        },
+        {0}, // TSS descriptor is filled in by gdt_install_tss()
     }
 };
 
@@ -73,3 +103,23 @@ struct GDTR gdtr = {
     .size = sizeof(gdt) - 1,
     .address = &gdt,
 };
+
+void gdt_install_tss(void) {
+    struct SegmentDescriptor *tss = &gdt.table[5];
+    uint32_t base = (uint32_t) &_interrupt_tss_entry;
+    uint32_t limit = sizeof(struct TSSEntry) - 1;
+
+    tss->segment_low = limit & 0xFFFF;
+    tss->base_low = base & 0xFFFF;
+    tss->base_mid = (base >> 16) & 0xFF;
+    tss->type_bit = 0x9; // 32-bit TSS (available)
+    tss->non_system = 0;
+    tss->dpl = 0;
+    tss->seg_present = 1;
+    tss->segment_high = (limit >> 16) & 0xF;
+    tss->avl = 0;
+    tss->code_seg = 0;
+    tss->op_size = 1;
+    tss->granularity = 0;
+    tss->base_high = (base >> 24) & 0xFF;
+}

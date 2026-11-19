@@ -17,4 +17,15 @@
  */
 extern void load_gdt(struct GDTR *gdtr);
 
+/**
+ * Load the TSS selector (GDT_TSS_SELECTOR) into the task register.
+ *
+ * @note
+ * The TSS descriptor must already be installed with `gdt_install_tss()`.
+ */
+extern void set_tss_register(void);
+
+/** Virtual address just past the kernel stack, defined in `linker.ld`. */
+extern uint8_t _linker_kernel_stack_top;
+
 #endif
