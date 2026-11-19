@@ -4,32 +4,17 @@
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
 #include "boot/kernel-entrypoint.h"
+#include "shell/shell.h"
 #include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 static uint8_t row = 0;
 static uint8_t col = 0;
-static uint8_t line_length[FRAMEBUFFER_HEIGHT];
 
 static void new_line(void) {
-    line_length[row] = col;
     ++row;
     col = 0;
-}
-
-static void handle_backspace(void) {
-    if (col > 0) {
-        --col;
-        framebuffer_write(row, col, ' ', 0xF, 0);
-    } else if (row > 0) {
-        --row;
-        col = line_length[row];
-        if (col == FRAMEBUFFER_WIDTH) {
-            --col;
-            framebuffer_write(row, col, ' ', 0xF, 0);
-        }
-    }
 }
 
 void kernel_setup(void) {
@@ -42,6 +27,8 @@ void kernel_setup(void) {
     framebuffer_clear();
     framebuffer_set_cursor(0, 0);
     keyboard_state_activate();
+    start_shell();
+    shell_get_cursor_position(&row, &col);
 
     while (true) {
         char c;
@@ -53,9 +40,24 @@ void kernel_setup(void) {
         switch (c) {
             case '\n':
                 new_line();
+                enter_command();
+                shell_get_cursor_position(&row, &col);
                 break;
             case '\b':
-                handle_backspace();
+                remove_char();
+                shell_get_cursor_position(&row, &col);
+                break;
+            case KEYBOARD_KEY_LEFT:
+                shell_cursor_left(&row, &col);
+                break;
+            case KEYBOARD_KEY_RIGHT:
+                shell_cursor_right(&row, &col);
+                break;
+            case KEYBOARD_KEY_UP:
+                shell_history_up(&row, &col);
+                break;
+            case KEYBOARD_KEY_DOWN:
+                shell_history_down(&row, &col);
                 break;
             default:
                 framebuffer_write(row, col, c, 0xF, 0);
@@ -64,6 +66,7 @@ void kernel_setup(void) {
                 if (col >= FRAMEBUFFER_WIDTH) {
                     new_line();
                 }
+                add_char(c);
                 break;
         }
         framebuffer_set_cursor(row, col);
