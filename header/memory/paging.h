@@ -25,6 +25,9 @@
 /// Maximum usable page frame. Default count: 128 MiB / 4 KiB = 32768 frames
 #define FRAME_COUNT_MAX ((SYS_MEM_MB << 20) / FRAME_SIZE)
 
+/// TODO: Define ts
+#define PAGING_DIRECTORY_TABLE_MAX_COUNT
+
 /// kernel's page directory, using 4 KiB pages
 extern struct PgDir _pg_kernel_pg_dir;
 extern struct PgTable _pg_kernel_pg_table;
