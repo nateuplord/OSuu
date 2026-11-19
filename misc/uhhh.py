@@ -58,14 +58,20 @@ def process_frames_and_export():
     if overflow_count:
         print(f"WARNING: {overflow_count} tile instances still overflowed to black.")
 
-    # Binary Export
+    # Write palette.bin (you need this alongside f0.bin..fN.bin!)
     with open("palette.bin", "wb") as f:
         f.write(palette_bytes)
     print(f"Wrote palette.bin ({len(palette_bytes)} bytes)")
 
-    with open("frames.bin", "wb") as f:
-        f.write(encoded_frames)
-    print(f"Wrote frames.bin ({len(encoded_frames)} bytes)")
+    CHUNK_FRAMES = 340  # 340 * 96 bytes = 32,640 bytes (~32 KB per chunk)
+    CHUNK_BYTES = CHUNK_FRAMES * 96
+
+    for idx in range(0, len(encoded_frames), CHUNK_BYTES):
+        chunk_num = idx // CHUNK_BYTES
+        chunk_data = encoded_frames[idx : idx + CHUNK_BYTES]
+        with open(f"f{chunk_num}.bin", "wb") as f:
+            f.write(chunk_data)
+        print(f"Wrote f{chunk_num}.bin ({len(chunk_data)} bytes)")
 
 
 if __name__ == "__main__":
