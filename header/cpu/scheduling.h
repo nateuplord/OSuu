@@ -31,7 +31,7 @@ typedef struct {
 } Queue;
 
 Queue make_queue();
-int push(Queue q, PCB block);
-int pop(Queue q, PCB *block);
+int push(Queue *q, PCB *block);
+int pop(Queue *q, PCB *block);
 
 #endif
