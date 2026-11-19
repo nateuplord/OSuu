@@ -73,7 +73,7 @@ disk:
 
 # Host-side tool: inject a file into the ext2 disk image
 HOST_CC       = gcc
-HOST_CFLAGS   = -std=c11 -Wall -Wextra -I$(HEADER_FOLDER)
+HOST_CFLAGS   = -std=c11 -Wall -Wextra -g -Wno-builtin-declaration-mismatch -I$(HEADER_FOLDER)
 INSERTER_SRC  = tools/inserter/external-inserter.c \
                 $(SOURCE_FOLDER)/fs/ext2.c \
                 $(SOURCE_FOLDER)/stdlib/string.c
