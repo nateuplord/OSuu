@@ -5,10 +5,12 @@
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
 #include "driver/keyboard.h"
+#include "driver/pit.h"
 #include "fs/ext2.h"
-#include "text/framebuffer.h"
 #include "memory/paging.h"
 #include "memory/swap.h"
+#include "misc/badapple.h"
+#include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -39,11 +41,13 @@ static void handle_backspace(void) {
 void kernel_setup(struct Multiboot2Info *mb_info) {
     load_gdt(&gdtr);
     pic_remap();
+    pit_init(100);
     initialize_filesystem_ext2();
     swap_init();
     initialize_idt();
 
-    (void) mb_info; // no longer used - video mode is set directly via VBE, not read from multiboot
+    (void)
+        mb_info; // no longer used - video mode is set directly via VBE, not read from multiboot
 
     struct VbeModeInfo vbe_info;
     if (!vbe_set_mode(0x101, &vbe_info)) {
@@ -54,6 +58,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     }
 
     framebuffer_init(&vbe_info);
+    play_bad_apple(288, 216);
 
     activate_keyboard_interrupt();
     framebuffer_clear();
