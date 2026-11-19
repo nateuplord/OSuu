@@ -74,12 +74,13 @@ void init_directory_table(
 ) {
     struct BlockBuffer buf;
     struct EXT2DirectoryEntry *dot = get_directory_entry(buf.buf, 0);
-    struct EXT2DirectoryEntry *dotdot = get_next_directory_entry(dot);
 
     dot->inode = inode;
     dot->name_len = 1;
     dot->file_type = EXT2_FT_DIR;
     dot->rec_len = get_entry_record_len(1);
+
+    struct EXT2DirectoryEntry *dotdot = get_next_directory_entry(dot);
 
     dotdot->inode = parent_inode;
     dotdot->name_len = 2;
