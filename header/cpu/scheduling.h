@@ -15,7 +15,7 @@ typedef struct {
     uint32_t esi;
     uint32_t edi;
     uint32_t ebp;
-    uint32_t esp;
+    uint64_t esp;
     uint32_t eip;
     uint32_t eflags;
     uint32_t cs;
@@ -24,6 +24,8 @@ typedef struct {
     uint32_t fs;
     uint32_t gs;
     uint32_t ss;
+    /* Saved interrupt frame; NULL until the process has been interrupted once. */
+    struct InterruptFrame *frame;
 } PCB;
 
 typedef struct {
@@ -41,6 +43,9 @@ Queue make_queue(void);
 int push(Queue *q, Process *block);
 int pop(Queue *q, Process **block);
 uint32_t queue_length(const Queue *q);
+/* Save the active frame into the running PCB and return the next frame to restore. */
+int cpu_save(struct InterruptFrame *frame);
+struct InterruptFrame *cpu_load(struct InterruptFrame *current_frame);
 // Pops from q1 and pushes to q2
 int queue_to_queue(Queue *q1, Queue *q2);
 

@@ -32,8 +32,17 @@ call_generic_handler:
     mov gs, ax
     pop eax
 
-    ; Call the C function
+    ; Pass the active interrupt frame pointer to the C function
+    mov eax, esp
+    push eax
     call main_interrupt_handler
+    add esp, 4
+
+    ; The handler returns the frame to restore in EAX. Switch stacks if needed.
+    test eax, eax
+    jz .restore_current_frame
+    mov esp, eax
+.restore_current_frame:
 
     ; Restore general-purpose & index register
     popad

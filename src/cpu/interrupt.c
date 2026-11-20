@@ -80,14 +80,20 @@ void activate_timer_interrupt(void) {
     __asm__ volatile("sti");
 }
 
-void main_interrupt_handler(struct InterruptFrame frame) {
-    switch (frame.int_number) {
+struct InterruptFrame *main_interrupt_handler(struct InterruptFrame *frame) {
+    if (frame == NULL) return NULL;
+
+    switch (frame->int_number) {
         case PIC1_OFFSET + IRQ_TIMER:
             pic_ack(IRQ_TIMER);
-            rr_switch();
+            if (cpu_save(frame) == 0 && rr_switch() == 0) {
+                struct InterruptFrame *next_frame = cpu_load(frame);
+                if (next_frame != NULL) return next_frame;
+            }
             break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
             break;
     }
+    return frame;
 }

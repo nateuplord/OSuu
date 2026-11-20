@@ -70,8 +70,8 @@ struct CPURegister {
 
     /// CPU tack registers (`bp`, `sp`)
     struct {
-        uint32_t esp;
         uint32_t ebp;
+        uint32_t esp;
     } __attribute__((packed)) stack;
 
     /// CPU general purpose registers (`a`, `b`, `c`, `d`)
@@ -187,6 +187,6 @@ void pic_remap(void);
  * @param frame
  * Information about CPU during interrupt is raised
  */
-void main_interrupt_handler(struct InterruptFrame frame);
+struct InterruptFrame *main_interrupt_handler(struct InterruptFrame *frame);
 
 #endif

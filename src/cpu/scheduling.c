@@ -53,6 +53,61 @@ uint32_t queue_length(const Queue *q) {
     return (uint32_t) len;
 }
 
+int cpu_save(struct InterruptFrame *frame) {
+    if (frame == NULL) return 1;
+    running->block.frame = frame;
+    running->block.eax = frame->cpu.general.eax;
+    running->block.ebx = frame->cpu.general.ebx;
+    running->block.ecx = frame->cpu.general.ecx;
+    running->block.edx = frame->cpu.general.edx;
+    running->block.esi = frame->cpu.index.esi;
+    running->block.edi = frame->cpu.index.edi;
+    running->block.ebp = frame->cpu.stack.ebp;
+    /* Stack position after iret, not PUSHAD's saved-ESP slot. */
+    running->block.esp = (uint64_t) frame + sizeof(*frame);
+    running->block.eip = frame->int_stack.eip;
+    running->block.eflags = frame->int_stack.eflags;
+    running->block.cs = frame->int_stack.cs;
+    running->block.ds = frame->cpu.segment.ds;
+    running->block.es = frame->cpu.segment.es;
+    running->block.fs = frame->cpu.segment.fs;
+    running->block.gs = frame->cpu.segment.gs;
+    /* This interrupt frame does not contain SS for same-privilege interrupts. */
+    return 0;
+}
+
+struct InterruptFrame *cpu_load(struct InterruptFrame *current_frame) {
+    if (running == NULL) return current_frame;
+
+    struct InterruptFrame *frame = running->block.frame;
+    if (frame == NULL) {
+        /* First dispatch: construct the same frame the ISR stub normally restores. */
+        if (running->block.esp < sizeof(*frame)) return current_frame;
+        frame = (struct InterruptFrame *)(running->block.esp - sizeof(*frame));
+        running->block.frame = frame;
+        frame->int_number = 0;
+        frame->int_stack.error_code = 0;
+    }
+
+    frame->cpu.general.eax = running->block.eax;
+    frame->cpu.general.ebx = running->block.ebx;
+    frame->cpu.general.ecx = running->block.ecx;
+    frame->cpu.general.edx = running->block.edx;
+    frame->cpu.index.esi = running->block.esi;
+    frame->cpu.index.edi = running->block.edi;
+    frame->cpu.stack.ebp = running->block.ebp;
+    /* PUSHAD's saved ESP slot is ignored by POPAD. */
+    frame->cpu.stack.esp = (uint64_t) frame + 32;
+    frame->int_stack.eip = running->block.eip;
+    frame->int_stack.eflags = running->block.eflags;
+    frame->int_stack.cs = running->block.cs;
+    frame->cpu.segment.ds = running->block.ds;
+    frame->cpu.segment.es = running->block.es;
+    frame->cpu.segment.fs = running->block.fs;
+    frame->cpu.segment.gs = running->block.gs;
+    return frame;
+}
+
 void scheduler_init(void) {
     ready = make_queue();
     for (int i=0; i<MAX_IO_DEVICES; i++) {
