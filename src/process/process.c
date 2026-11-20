@@ -23,6 +23,15 @@ static uint32_t process_generate_new_pid(void) {
     return next_pid++;
 }
 
+struct ProcessControlBlock *process_get_current_running_pcb_pointer(void) {
+    for (uint32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
+        if (process_manager_state.is_process_active[i] &&
+        _process_list[i].metadata.state == PROCESS_STATE_RUNNING) {
+            return &_process_list[i];
+        }
+    }
+    return NULL;
+}
 
 int32_t process_create_user_process(struct EXT2DriverRequest request) {
     int32_t retcode = PROCESS_CREATE_SUCCESS;
