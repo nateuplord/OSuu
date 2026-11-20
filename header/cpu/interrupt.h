@@ -142,9 +142,10 @@ struct InterruptFrame {
     struct InterruptStack int_stack;
 } __attribute__((packed));
 
-/**
- * Activate PIC mask for keyboard only
- */
+/** Configure the PIT and unmask IRQ0. */
+void activate_timer_interrupt(void);
+
+/** Activate the PIC mask for the keyboard IRQ. */
 void activate_keyboard_interrupt(void);
 
 /**

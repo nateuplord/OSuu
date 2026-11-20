@@ -1,9 +1,11 @@
 #ifndef _SCHEDULING_H
 #define _SCHEDULING_H
 
+#include "cpu/interrupt.h"
 #include <stdint.h>
 
 #define QUEUE_CAPACITY 16
+#define MAX_IO_DEVICES 16
 
 typedef struct {
     uint32_t eax;
@@ -30,8 +32,22 @@ typedef struct {
     int tail;
 } Queue;
 
-Queue make_queue();
+Queue make_queue(void);
 int push(Queue *q, PCB *block);
-int pop(Queue *q, PCB *block);
+int pop(Queue *q, PCB **block);
+uint32_t queue_length(const Queue *q);
+// Pops from q1 and pushes to q2
+int queue_to_queue(Queue *q1, Queue *q2);
+
+void scheduler_init(void);
+
+// Round robin process switch
+int rr_switch(void);
+
+// Moves the running process to the waiting queue
+int io_start(uint32_t irq);
+
+// Moves the process from the waiting queue to the ready queue
+int io_finish(uint32_t irq);
 
 #endif

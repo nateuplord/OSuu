@@ -1,6 +1,7 @@
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
+#include "cpu/scheduling.h"
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
 #include "boot/kernel-entrypoint.h"
@@ -37,6 +38,7 @@ void kernel_setup(void) {
     pic_remap();
     initialize_filesystem_ext2();
     initialize_idt();
+    scheduler_init();
 
     activate_keyboard_interrupt();
     framebuffer_clear();
