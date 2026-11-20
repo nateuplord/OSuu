@@ -54,13 +54,16 @@
  * @param page_directory_virtual_addr CPU register CR3, containing pointer to active page directory
  */
 struct Context {
-    // TODO: Add important field here
-};
+    struct CPURegister cpu;
+    uint32_t eip;
+    uint32_t eflags;
+    uint32_t page_directory_virtual_addr;
+} __attribute__((packed));
 
 typedef enum PROCESS_STATE {
-    BLOCKED,
-    READY,
-    RUNNING,
+    PROCESS_STATE_READY,
+    PROCESS_STATE_RUNNING,
+    PROCESS_STATE_BLOCKED,
 } PROCESS_STATE;
 
 /**
@@ -72,8 +75,12 @@ typedef enum PROCESS_STATE {
  */
 struct ProcessControlBlock {
     struct {
-        // ...
+        uint32_t pid;
+        char name[PROCESS_NAME_LENGTH_MAX];
+        enum PROCESS_STATE state;
     } metadata;
+
+    struct Context context;
 
     struct {
         void *virtual_addr_used[PROCESS_PAGE_FRAME_COUNT_MAX];
