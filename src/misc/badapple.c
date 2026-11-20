@@ -1,4 +1,5 @@
 #include "misc/badapple.h"
+#include "driver/keyboard.h"
 #include "driver/pit.h"
 #include "fs/ext2.h"
 #include "text/framebuffer.h"
@@ -107,9 +108,10 @@ void play_bad_apple(
     uint32_t start_tick = pit_get_ticks();
     uint32_t global_frame_idx = 0;
     char chunk_name[12];
+    bool interrupted = false;
 
     // 2. Stream f0.bin, f1.bin, ... until read() returns 3 (Not found)
-    for (uint32_t chunk_idx = 0;; chunk_idx++) {
+    for (uint32_t chunk_idx = 0; !interrupted; chunk_idx++) {
         // Zero buffer so the final partial chunk has clean trailing zeros
         for (size_t z = 0; z < CHUNK_BUF_SIZE; z++) {
             chunk_buf[z] = 0;
@@ -139,7 +141,7 @@ void play_bad_apple(
         uint32_t frames_in_chunk = count_valid_frames(chunk_buf, CHUNK_FRAMES);
 
         // 3. Play all frames in this 32 KB chunk
-        for (uint32_t i = 0; i < frames_in_chunk; i++) {
+        for (uint32_t i = 0; i < frames_in_chunk && !interrupted; i++) {
             const uint8_t *frame_ptr =
                 chunk_buf + ((size_t) i * BYTES_PER_FRAME);
 
@@ -161,6 +163,12 @@ void play_bad_apple(
             uint32_t next_frame_tick =
                 start_tick + (global_frame_idx * PIT_HZ) / VIDEO_FPS;
             while (pit_get_ticks() < next_frame_tick) {
+                char c;
+                get_keyboard_buffer(&c); // non-blocking; 0 if nothing pending
+                if (c) {
+                    interrupted = true;
+                    break;
+                }
                 __asm__ volatile("hlt");
             }
         }

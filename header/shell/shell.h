@@ -64,5 +64,6 @@ int shell_find(char **args);
 int shell_echo(char **args);
 int shell_pwd(char **args);
 int shell_exit(char **args);
+int shell_badapple(char **args);
 
 #endif
