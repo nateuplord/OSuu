@@ -5,10 +5,12 @@
 
 // Optional linker variable : Pointing to kernel start & end address
 // Note : Use & operator, example : a = (uint32_t) &_linker_kernel_stack_top;
-extern uint32_t _linker_kernel_virtual_addr_start;
-extern uint32_t _linker_kernel_virtual_addr_end;
-extern uint32_t _linker_kernel_physical_addr_start;
-extern uint32_t _linker_kernel_physical_addr_end;
+extern uint32_t _linker_kernel_virt_addr_start;
+extern uint32_t _linker_kernel_virt_addr_end;
+
+extern uint32_t _linker_kernel_phys_addr_start;
+extern uint32_t _linker_kernel_phys_addr_end;
+
 extern uint8_t _linker_kernel_stack_top;
 
 /**
