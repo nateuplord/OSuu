@@ -1,14 +1,35 @@
 ![Credit: 朧月](assets/mascot.jpg)
 
-# Template Dasar IF2130 Sistem Operasi - 2026/2027
-Template dasar untuk Tugas Besar IF2130 - Sistem Operasi 2026/2027
+# Tugas Besar IF2130 Sistem Operasi - 2026/2027 | OSuu
 
-## README Specification
+## Welcome To OSuu!
+The bestest not yet rhythm OS
 
-Pada file README, minimal kalian harus memiliki hal berikut:
+## Daftar Anggota
+- 13525058
+- 13525061
+- 13525065 / Christopher Hendrik Gunawan
+- 13525083
 
-- Nama Kelompok
-- Daftar Isi
-- Cara Run
-- Fitur yang Dibuat
-- Maskot Kelompok Kalian
+## Daftar Isi
+
+```
+root
+├───.kit
+├───assets
+├───bin
+├───boot
+├───header
+├───src
+├───.clang-format
+├───.gitignore
+├───Makefile
+└───README.md
+```
+
+## Cara Run
+
+## Fitur yang Dibuat
+- Shell
+- Process
+- Round Robin Scheduler with Priority
