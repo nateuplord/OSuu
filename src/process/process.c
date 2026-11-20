@@ -3,6 +3,12 @@
 #include "memory/paging.h"
 #include "stdlib/string.h"
 
+struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX] = {0};
+struct ProcessManagerState process_manager_state = {
+    .is_process_active = {false},
+    .active_process_count = 0,
+};
+
 int32_t process_create_user_process(struct EXT2DriverRequest request) {
     int32_t retcode = PROCESS_CREATE_SUCCESS;
     if (process_manager_state.active_process_count >= PROCESS_COUNT_MAX) {
