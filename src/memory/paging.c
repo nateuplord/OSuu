@@ -17,28 +17,49 @@ static struct {
 };
 
 struct PgDir *paging_create_new_page_directory(void) {
-    /*
-     * TODO: Get & initialize empty page directory from page_directory_list
-     * - Iterate page_directory_list[] & get unused page directory
-     * - Mark selected page directory as used
-     * - Create new page directory entry for kernel higher half with flag:
-     *     > present bit    true
-     *     > write bit      true
-     *     > pagesize 4 mb  true
-     *     > lower address  0
-     * - Set page_directory.table[0x300] with kernel page directory entry
-     * - Return the page directory address
-     */
+    for (uint32_t i = 0; i < PAGING_DIRECTORY_TABLE_MAX_COUNT; i++) {
+        if (!page_directory_manager.page_directory_used[i]) {
+            // Mark as used
+            page_directory_manager.page_directory_used[i] = true;
+            struct PgDir *new_dir = &page_directory_list[i];
+
+            // Clear the table of the new dir to rid of any garbage values
+            for (uint32_t j = 0; j < 1024; j++) {
+                memset(new_dir->table, 0, sizeof(new_dir->table));
+            }
+            /*
+                > present bit    true
+                > write bit      true
+                > pagesize 4 mb  true
+                > lower address  0
+            */
+
+            new_dir->table[0x300].flags.present = 1;
+            new_dir->table[0x300].flags.read_write = 1;
+            new_dir->table[0x300].flags.pg_size = 1;
+            new_dir->table[0x300].addr_low = 0;
+
+            return new_dir;
+        }
+    }
     return NULL;
 }
 
 bool paging_free_page_directory(struct PgDir *page_dir) {
-    /**
-     * TODO: Iterate & clear page directory values
-     * - Iterate page_directory_list[] & check &page_directory_list[] == page_dir
-     * - If matches, mark the page directory as unusued and clear all page directory entry
-     * - Return true
-     */
+    for (uint32_t i = 0; i < PAGING_DIRECTORY_TABLE_MAX_COUNT; i++) {
+        if (&page_directory_list[i] == page_dir) {
+            // Mark as unused
+            page_directory_manager.page_directory_used[i] = false;
+
+            // Clear all page directory
+            memset(
+                page_directory_list[i].table, 0,
+                sizeof(page_directory_list[i].table)
+            );
+
+            return true;
+        }
+    }
     return false;
 }
 
