@@ -45,6 +45,8 @@
 #define PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY 3
 #define PROCESS_CREATE_FAIL_FS_READ_FAILURE 4
 
+//note: might need to increase PROCESS_PAGE_FRAME_COUNT_MAX (e.g., to 256) when loading shell as a process
+
 /**
  * Contain information needed for task to be able to get interrupted and resumed later
  *
@@ -61,6 +63,7 @@ struct Context {
 } __attribute__((packed));
 
 typedef enum PROCESS_STATE {
+    PROCESS_STATE_INACTIVE,
     PROCESS_STATE_READY,
     PROCESS_STATE_RUNNING,
     PROCESS_STATE_BLOCKED,
@@ -87,6 +90,15 @@ struct ProcessControlBlock {
         uint32_t page_frame_used_count;
     } memory;
 };
+
+struct ProcessManagerState {
+    bool is_process_active[PROCESS_COUNT_MAX];
+    uint32_t active_process_count;
+};
+
+extern struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX];
+
+extern struct ProcessManagerState process_manager_state;
 
 /**
  * Get currently running process PCB pointer
