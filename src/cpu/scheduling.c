@@ -1,11 +1,12 @@
 #include "cpu/scheduling.h"
 #include "cpu/interrupt.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 static Queue ready;
 static Queue waiting[MAX_IO_DEVICES];
-static PCB *running = NULL;
+static Process *running = NULL;
 
 Queue make_queue() {
     Queue q;
@@ -17,18 +18,27 @@ Queue make_queue() {
     return q;
 }
 
-int push(Queue *q, PCB *block) {
-    if (block == NULL || queue_length(q) == QUEUE_CAPACITY) return 1;
-    if (q->buffer[q->head] != NULL) {
-        q->head = (q->head + 1) % QUEUE_CAPACITY;
+int push(Queue *q, Process *p) {
+    if (p == NULL || queue_length(q) == QUEUE_CAPACITY) return 1;
+    int i = q->head;
+    if (q->buffer[i] != NULL) {
+        q->head = (q->head+1) % QUEUE_CAPACITY;
+        bool resume = q->buffer[i]->priority > p->priority;
+        while (resume) {
+            q->buffer[(i+1)%QUEUE_CAPACITY] = q->buffer[i];
+            i = (QUEUE_CAPACITY+i-1) % QUEUE_CAPACITY;
+            resume = i != (QUEUE_CAPACITY+q->tail-1) % QUEUE_CAPACITY;
+            if (resume) resume = q->buffer[i]->priority > p->priority;
+        }
+        i = (i+1) % QUEUE_CAPACITY;
     }
-    q->buffer[q->head] = block;
+    q->buffer[i] = p;
     return 0;
 }
 
-int pop(Queue *q, PCB **block) {
-    if (block == NULL || queue_length(q) == 0) return 1;
-    *block = q->buffer[q->tail];
+int pop(Queue *q, Process **p) {
+    if (p == NULL || queue_length(q) == 0) return 1;
+    *p = q->buffer[q->tail];
     q->buffer[q->tail] = NULL;
     if (q->tail != q->head) {
         q->tail = (q->tail+1) % QUEUE_CAPACITY;
@@ -53,10 +63,10 @@ void scheduler_init(void) {
 }
 
 int queue_to_queue(Queue *q1, Queue *q2) {
-    PCB *block = NULL;
-    if (pop(q1, &block)) return 1;
-    if (push(q2, block)) {
-        (void) push(q1, block);
+    Process *p = NULL;
+    if (pop(q1, &p)) return 1;
+    if (push(q2, p)) {
+        (void) push(q1, p);
         return 1;
     }
     return 0;

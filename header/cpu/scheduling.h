@@ -27,24 +27,29 @@ typedef struct {
 } PCB;
 
 typedef struct {
-    PCB *buffer[QUEUE_CAPACITY];
+    PCB block;
+    int priority;
+} Process;
+
+typedef struct {
+    Process *buffer[QUEUE_CAPACITY];
     int head;
     int tail;
 } Queue;
 
 Queue make_queue(void);
-int push(Queue *q, PCB *block);
-int pop(Queue *q, PCB **block);
+int push(Queue *q, Process *block);
+int pop(Queue *q, Process **block);
 uint32_t queue_length(const Queue *q);
 // Pops from q1 and pushes to q2
 int queue_to_queue(Queue *q1, Queue *q2);
 
 void scheduler_init(void);
 
-// Round robin process switch
+// Round robin task switch
 int rr_switch(void);
 
-// Moves the running process to the waiting queue
+// Moves the task process to the waiting queue
 int io_start(uint32_t irq);
 
 // Moves the process from the waiting queue to the ready queue
