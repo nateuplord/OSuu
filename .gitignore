@@ -4,3 +4,6 @@
 compile_flags.txt
 compile_commands.json
 .clangd
+
+# Regenerable from the source video, see misc/README.md
+misc/bad-apple-frames/

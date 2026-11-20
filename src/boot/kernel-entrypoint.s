@@ -7,32 +7,47 @@ extern _pg_kernel_pg_table              ; kernel page table
 
 KERNEL_VIRT_BASE equ 0xC0000000         ; kernel virtual memory
 KERNEL_STACK_SIZE   equ 2097152         ; size of stack in bytes
-MAGIC_NUMBER        equ 0x1BADB002      ; define the magic number constant
-FLAGS               equ 0x0             ; multiboot flags
-CHECKSUM            equ -MAGIC_NUMBER   ; calculate the checksum (magic number + checksum + flags == 0)
+
+; Must match header/memory/paging.h's KERNEL_RESERVED_PAGE_TABLE_COUNT exactly -
+; see that header for what this constrains.
+KERNEL_RESERVED_PAGE_TABLE_COUNT equ 4
+
+MAGIC2    equ 0xE85250D6                                   ; Multiboot2 magic
+ARCH      equ 0                                            ; 0 = i386 protected mode
+CHECKSUM2 equ -(MAGIC2 + ARCH + (header_end - header_start))
 
 section .bss
 align 4                                 ; align at 4 bytes
 kernel_stack:                           ; label points to beginning of memory
     resb KERNEL_STACK_SIZE              ; reserve stack for the kernel
 
-section .multiboot                      ; GRUB multiboot header
-align 4                                 ; the code must be 4 byte aligned
-    dd MAGIC_NUMBER                     ; write the magic number to the machine code,
-    dd FLAGS                            ; the flags,
-    dd CHECKSUM                         ; and the checksum
+section .multiboot                   ; GNU GRUB Multiboot2 header
+align 8
+header_start:
+    dd MAGIC2
+    dd ARCH
+    dd header_end - header_start     ; header_length
+    dd CHECKSUM2
+
+    ; terminating tag
+    align 8
+    dw 0
+    dw 0
+    dd 8
+header_end:
 
 ; start of the text (code) section
 section .setup.text
 
-loader equ (loader_entrypoint - KERNEL_VIRT_BASE)
+loader equ loader_entrypoint
 
 ; the loader label (defined as entry point in linker script)
 loader_entrypoint:
-    ; Build the initial 4 KiB identity/high-half mappings before paging is on.
+    ; Build the initial 4 KiB identity/high-half mappings before paging is on,
+    ; across all KERNEL_RESERVED_PAGE_TABLE_COUNT page tables (4 MiB each).
     mov edi, _pg_kernel_pg_table - KERNEL_VIRT_BASE
     xor eax, eax
-    mov ecx, 1024
+    mov ecx, KERNEL_RESERVED_PAGE_TABLE_COUNT * 1024
 
 .fill_kernel_page_table:
     mov edx, eax
@@ -42,16 +57,23 @@ loader_entrypoint:
     add eax, 0x1000
     loop .fill_kernel_page_table
 
-    mov eax, _pg_kernel_pg_table - KERNEL_VIRT_BASE
-    or  eax, 0x3
-    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE], eax
-    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE + 0xC00], eax
+    ; Point each page table's low identity-mapped directory entry and its
+    ; high-half mirror (dir[N] / dir[0xC00+N]) at the Nth page table.
+    ; esi (not ebx!) is the scratch here - ebx still holds the multiboot2
+    ; info pointer GRUB passed in, needed later by loader_virtual.
+    mov esi, _pg_kernel_pg_table - KERNEL_VIRT_BASE
+    mov edi, _pg_kernel_pg_dir - KERNEL_VIRT_BASE
+    mov ecx, KERNEL_RESERVED_PAGE_TABLE_COUNT
 
-    ; Recursive page directory entry
-    mov eax, _pg_kernel_pg_table - KERNEL_VIRT_BASE
+.fill_kernel_page_dir:
+    mov eax, esi
     or  eax, 0x3
-    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE], eax
-    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE + 0xC00], eax
+    mov [edi], eax
+    mov [edi + 0xC00], eax
+
+    add esi, 0x1000                     ; next page table (each is 4 KiB)
+    add edi, 4                          ; next directory entry
+    loop .fill_kernel_page_dir
 
     ; Recursive mapping at index 1023 (offset 0xFFC) for 0xFFC00000
     mov eax, _pg_kernel_pg_dir - KERNEL_VIRT_BASE
@@ -81,11 +103,11 @@ loader_entrypoint:
     lea eax, [loader_virtual]
     jmp eax
 
+section .text
+
 loader_virtual:
-    mov dword [_pg_kernel_pg_dir], 0
-    mov eax, cr3
-    mov cr3, eax                                    ; Delete identity mapping and invalidate TLB cache for first page
     mov esp, kernel_stack + KERNEL_STACK_SIZE       ; Setup stack register to proper location
+    push ebx                                        ; multiboot2 info pointer (unused for now)
     call kernel_setup
 
 .loop:

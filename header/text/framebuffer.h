@@ -1,6 +1,7 @@
 #ifndef _FRAMEBUFFER_H
 #define _FRAMEBUFFER_H
 
+#include "boot/vbe.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -9,18 +10,49 @@
  * Terminal framebuffer
  *
  * @details
- * Starting at `FRAMEBUFFER_MEMORY_OFFSET`,
- * - Even number memory: Character, 8-bit
- * - Odd number memory: Character color lower 4-bit, Background color upper 4-bit
- *
- * @note Resolution is 80x25
+ * Text is rendered as 8x8 glyphs onto the linear graphics framebuffer set up
+ * by vbe_set_mode() (640x480, 8bpp indexed), giving a character grid of
+ * FRAMEBUFFER_WIDTH x FRAMEBUFFER_HEIGHT cells (640/8 x 480/8).
  */
-#define FRAMEBUFFER_MEMORY_OFFSET ((uint8_t *) 0xC00B8000)
-#define CURSOR_PORT_CMD 0x03D4
-#define CURSOR_PORT_DATA 0x03D5
-
 #define FRAMEBUFFER_WIDTH 80
-#define FRAMEBUFFER_HEIGHT 25
+#define FRAMEBUFFER_HEIGHT 60
+
+/**
+ * Initialize the framebuffer driver with the linear graphics framebuffer
+ * info returned by vbe_set_mode().
+ *
+ * @details
+ * Must be called once, before any other framebuffer_* function, and only
+ * after a successful vbe_set_mode() call.
+ *
+ * @param info
+ * Mode info filled in by vbe_set_mode()
+ */
+void framebuffer_init(struct VbeModeInfo *info);
+
+/**
+ * Set a single pixel's color in the linear graphics framebuffer.
+ *
+ * @details
+ * Writes directly into framebuffer memory at `y * pitch + x`, one byte
+ * per pixel (8bpp indexed color). This is the lowest-level drawing
+ * primitive; every other drawing function (framebuffer_write,
+ * framebuffer_clear, ...) is built on top of it.
+ *
+ * @param x
+ * Horizontal pixel position, zero-indexed
+ *
+ * @param y
+ * Vertical pixel position, zero-indexed
+ *
+ * @param color_index
+ * Palette index (0-255) to write at that pixel
+ */
+void putpixel(
+    uint16_t x,
+    uint16_t y,
+    uint8_t color_index
+);
 
 /**
  * Set framebuffer character and color with corresponding parameter values.
@@ -74,5 +106,11 @@ void framebuffer_set_cursor(
  * @note It's allowed to use different color palette for this
  */
 void framebuffer_clear(void);
+
+/**
+ * Scroll the whole screen up by one character row (8px) and clear the
+ * newly-revealed bottom row.
+ */
+void framebuffer_scroll_up(void);
 
 #endif

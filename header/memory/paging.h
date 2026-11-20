@@ -18,7 +18,17 @@
 /// Page Frame (PF) Size: 4 KiB
 #define FRAME_SIZE 0x1000u
 
-#define KERNEL_RESERVED_FRAME_COUNT (0x400000u / FRAME_SIZE)
+/// Number of 4 MiB page tables statically identity/high-half mapped at boot,
+/// before paging's own demand-mapping machinery exists to help. MUST match
+/// kernel-entrypoint.s's own KERNEL_RESERVED_PAGE_TABLE_COUNT exactly. The
+/// kernel's entire .text+.rodata+.data+.bss (including the boot stack) has
+/// to fit within COUNT * 4 MiB, or the kernel crashes the instant something
+/// touches memory past that point (hit this twice already as static buffers
+/// grew - bad apple's buffers, then the shell's).
+#define KERNEL_RESERVED_PAGE_TABLE_COUNT 4u
+
+#define KERNEL_RESERVED_FRAME_COUNT \
+    (KERNEL_RESERVED_PAGE_TABLE_COUNT * 0x400000u / FRAME_SIZE)
 #define RECURSIVE_PG_TABLES_VIRT_ADDR 0xFFC00000u
 #define RECURSIVE_PG_DIR_INDEX 1023u
 
@@ -27,7 +37,6 @@
 
 /// kernel's page directory, using 4 KiB pages
 extern struct PgDir _pg_kernel_pg_dir;
-extern struct PgTable _pg_kernel_pg_table;
 
 /**
  * Page directory entry flags
@@ -276,6 +285,9 @@ struct PgDir {
 struct PgTable {
     struct PgTableEntry data[PG_ENTRY_COUNT];
 } __attribute__((packed));
+
+/// kernel's statically-mapped page tables, initialized in kernel-entrypoint.s
+extern struct PgTable _pg_kernel_pg_table[KERNEL_RESERVED_PAGE_TABLE_COUNT];
 
 /**
  * Page manager states.

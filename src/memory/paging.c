@@ -10,7 +10,7 @@
  * _pg_kernel_pg_dir and _pg_kernel_pg_table is initialized on kernel-entrypoint.s
  */
 __attribute__((aligned(0x1000))) struct PgDir _pg_kernel_pg_dir;
-__attribute__((aligned(0x1000))) struct PgTable _pg_kernel_pg_table;
+__attribute__((aligned(0x1000))) struct PgTable _pg_kernel_pg_table[KERNEL_RESERVED_PAGE_TABLE_COUNT];
 
 /**
  * Global page frame manager state tracking free/busy frames.

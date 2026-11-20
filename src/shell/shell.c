@@ -298,16 +298,7 @@ static void shell_printf_newline(void) {
     if (shell_printf_row + 1 < FRAMEBUFFER_HEIGHT) {
         shell_printf_row++;
     } else {
-        volatile uint16_t *framebuffer =
-            (volatile uint16_t *)FRAMEBUFFER_MEMORY_OFFSET;
-        for (uint32_t cell = 0;
-             cell < (FRAMEBUFFER_HEIGHT - 1) * FRAMEBUFFER_WIDTH;
-             cell++) {
-            framebuffer[cell] = framebuffer[cell + FRAMEBUFFER_WIDTH];
-        }
-        for (uint8_t col = 0; col < FRAMEBUFFER_WIDTH; col++) {
-            framebuffer_write(FRAMEBUFFER_HEIGHT - 1, col, ' ', 0x7, 0);
-        }
+        framebuffer_scroll_up();
     }
     shell_printf_col = 0;
 }

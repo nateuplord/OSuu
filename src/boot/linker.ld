@@ -1,19 +1,21 @@
 ENTRY(loader)                       /* the name of the entry label */
 SECTIONS {
-    . = 0xC0100000;                 /* use relocation address at 0xC0100000 */
+    . = 0x00100000;
 
-    _linker_kernel_virt_addr_start  = .;
-    _linker_kernel_phys_addr_start = . - 0xC0000000;
-
-    .multiboot ALIGN (0x1000) : AT (ADDR (.multiboot) - 0xC0000000)
+    .multiboot ALIGN (0x1000) :
     {
         *(.multiboot)               /* put GRUB multiboot header at front */
     }
 
-    .setup.text ALIGN (0x1000) : AT (ADDR (.setup.text) - 0xC0000000)
+    .setup.text ALIGN (0x1000) :
     {
-        *(.setup.text)              /* initial setup code */
+        *(.setup.text)              /* initial setup code: runs before paging is enabled */
     }
+
+    . += 0xC0000000;
+
+    _linker_kernel_virt_addr_start  = .;
+    _linker_kernel_phys_addr_start = . - 0xC0000000;
 
     .text ALIGN (0x1000) : AT (ADDR (.text) - 0xC0000000)
     {
@@ -42,4 +44,16 @@ SECTIONS {
     /* Linker variable that can be used in kernel */
     _linker_kernel_virt_addr_end = .;
     _linker_kernel_phys_addr_end = . - 0xC0000000;
+
+    . = ALIGN(0x1000);
+    realmode_lma = .;
+
+    . = 0x9000;
+    .realmode : AT(realmode_lma - 0xC0000000)
+    {
+        realmode_start = .;
+        *(.realmode)
+        realmode_end = .;
+    }
+    realmode_size = realmode_end - realmode_start;
 }
