@@ -9,6 +9,15 @@ struct ProcessManagerState process_manager_state = {
     .active_process_count = 0,
 };
 
+static int32_t process_list_get_inactive_index(void) {
+    for (int32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
+        if (!process_manager_state.is_process_active[i] && _process_list[i].metadata.state == PROCESS_STATE_INACTIVE) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 int32_t process_create_user_process(struct EXT2DriverRequest request) {
     int32_t retcode = PROCESS_CREATE_SUCCESS;
     if (process_manager_state.active_process_count >= PROCESS_COUNT_MAX) {
