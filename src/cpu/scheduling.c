@@ -38,8 +38,7 @@ int pop(Queue *q, PCB **block) {
 
 uint32_t queue_length(const Queue *q) {
     int len = 0;
-    len = q->head - q->tail;
-    if (len < 0) len += QUEUE_CAPACITY;
+    len = (QUEUE_CAPACITY + q->head - q->tail) % QUEUE_CAPACITY;
     if (q->buffer[q->head] != NULL) len++;
     return (uint32_t) len;
 }
