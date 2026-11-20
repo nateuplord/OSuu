@@ -6,10 +6,10 @@
 The bestest not yet rhythm OS
 
 ## Daftar Anggota
-- 13525058
-- 13525061
+- 13525058 / Farish Firstian Erifiawan
+- 13525061 / Rifqi Irfan Indrawan
 - 13525065 / Christopher Hendrik Gunawan
-- 13525083
+- 13525083 / Natanael Chris Fabian Santoso
 
 ## Daftar Isi
 
