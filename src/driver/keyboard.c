@@ -81,6 +81,35 @@ void get_keyboard_buffer(char *buf) {
 
 void keyboard_isr(void) {
     uint8_t scancode = in(KEYBOARD_DATA_PORT);
+
+    if (scancode == EXTENDED_SCANCODE_BYTE) {
+        keyboard_state.read_extended_mode = true;
+        pic_ack(IRQ_KEYBOARD);
+        return;
+    }
+
+    if (keyboard_state.read_extended_mode) {
+        keyboard_state.read_extended_mode = false;
+        if (keyboard_state.keyboard_input_on && (scancode & 0x80) == 0) {
+            switch (scancode) {
+                case EXT_SCANCODE_UP:
+                    keyboard_state.keyboard_buffer = KEYBOARD_KEY_UP;
+                    break;
+                case EXT_SCANCODE_DOWN:
+                    keyboard_state.keyboard_buffer = KEYBOARD_KEY_DOWN;
+                    break;
+                case EXT_SCANCODE_LEFT:
+                    keyboard_state.keyboard_buffer = KEYBOARD_KEY_LEFT;
+                    break;
+                case EXT_SCANCODE_RIGHT:
+                    keyboard_state.keyboard_buffer = KEYBOARD_KEY_RIGHT;
+                    break;
+            }
+        }
+        pic_ack(IRQ_KEYBOARD);
+        return;
+    }
+
     update_modifier_state(scancode);
 
     if (keyboard_state.keyboard_input_on) {
