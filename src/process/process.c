@@ -18,6 +18,12 @@ static int32_t process_list_get_inactive_index(void) {
     return -1;
 }
 
+static uint32_t process_generate_new_pid(void) {
+    static uint32_t next_pid = 1;
+    return next_pid++;
+}
+
+
 int32_t process_create_user_process(struct EXT2DriverRequest request) {
     int32_t retcode = PROCESS_CREATE_SUCCESS;
     if (process_manager_state.active_process_count >= PROCESS_COUNT_MAX) {
