@@ -14,7 +14,7 @@ ISO_NAME      = OSuu
 WARNING_CFLAG = -Wall -Wextra -Werror
 DEBUG_CFLAG   = -fshort-wchar -g
 STRIP_CFLAG   = -nostdlib -fno-stack-protector -nostartfiles -nodefaultlibs -ffreestanding
-C_FLAGS       = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -I$(HEADER_FOLDER) -m32 -mgeneral-regs-only -c -MMD -MP
+C_FLAGS       = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -I$(HEADER_FOLDER) -m32 -mgeneral-regs-only -fno-omit-frame-pointer -c -MMD -MP
 ASM_FLAGS     = -f elf32 -g -F dwarf
 LINK_FLAGS    = -T $(SOURCE_FOLDER)/boot/linker.ld -melf_i386
 ISO_FLAGS     = -R -b boot/grub/grub1 -no-emul-boot -boot-load-size 4 -A os -input-charset utf8 -quiet -boot-info-table
@@ -69,4 +69,8 @@ iso: kernel
 DISK_NAME = storage
 
 disk:
-	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
+	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 5M
+
+# paging testing
+# debugpaging: clean build
+# 	qemu-system-i386 -s -S -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk,cache=directsync -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso

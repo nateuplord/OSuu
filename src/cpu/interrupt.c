@@ -2,6 +2,7 @@
 #include "cpu/portio.h"
 #include "cpu/scheduling.h"
 #include "driver/keyboard.h"
+#include "memory/swap.h"
 
 #define PIT_MAX_FREQUENCY 1193182
 #define PIT_TIMER_FREQUENCY 1000
@@ -80,8 +81,11 @@ void activate_timer_interrupt(void) {
     __asm__ volatile("sti");
 }
 
-struct InterruptFrame *main_interrupt_handler(struct InterruptFrame *frame) {
-    if (frame == NULL) return NULL;
+struct InterruptFrame *main_interrupt_handler(void) {
+    uintptr_t frame_address;
+    /* The ISR stub puts the frame address in EBP before calling us. */
+    __asm__ volatile("movl (%%ebp), %0" : "=r"(frame_address));
+    struct InterruptFrame *frame = (struct InterruptFrame *) frame_address;
 
     switch (frame->int_number) {
         case PIC1_OFFSET + IRQ_TIMER:
@@ -93,6 +97,11 @@ struct InterruptFrame *main_interrupt_handler(struct InterruptFrame *frame) {
             break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
+            break;
+        case 14:
+            handle_page_fault(frame->int_stack.error_code);
+            break;
+        default:
             break;
     }
     return frame;

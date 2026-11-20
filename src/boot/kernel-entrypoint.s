@@ -1,38 +1,107 @@
-global loader       ; the entry symbol for ELF
-global load_gdt     ; load GDT table
-extern kernel_setup ; kernel
+global loader                           ; the entry symbol for ELF
+global load_gdt                         ; load GDT table
+global set_tss_register                 ; set tss register to GDT entry
+extern kernel_setup                     ; kernel C entrypoint
+extern _pg_kernel_pg_dir                ; kernel page directory
+extern _pg_kernel_pg_table              ; kernel page table
 
-KERNEL_STACK_SIZE equ 2097152        ; size of stack in bytes
-MAGIC_NUMBER      equ 0x1BADB002     ; define the magic number constant
-FLAGS             equ 0x0            ; multiboot flags
-CHECKSUM          equ -MAGIC_NUMBER  ; calculate the checksum
-                                     ; (magic number + checksum + flags should equal 0)
+KERNEL_VIRT_BASE equ 0xC0000000         ; kernel virtual memory
+KERNEL_STACK_SIZE   equ 2097152         ; size of stack in bytes
+MAGIC_NUMBER        equ 0x1BADB002      ; define the magic number constant
+FLAGS               equ 0x0             ; multiboot flags
+CHECKSUM            equ -MAGIC_NUMBER   ; calculate the checksum (magic number + checksum + flags == 0)
 
 section .bss
-align 4                              ; align at 4 bytes
-kernel_stack:                        ; label points to beginning of memory
-    resb KERNEL_STACK_SIZE           ; reserve stack for the kernel
+align 4                                 ; align at 4 bytes
+kernel_stack:                           ; label points to beginning of memory
+    resb KERNEL_STACK_SIZE              ; reserve stack for the kernel
 
-section .multiboot                   ; GNU GRUB Multiboot header
-align 4                              ; the code must be 4 byte aligned
-    dd MAGIC_NUMBER                  ; write the magic number to the machine code,
-    dd FLAGS                         ; the flags,
-    dd CHECKSUM                      ; and the checksum
+section .multiboot                      ; GRUB multiboot header
+align 4                                 ; the code must be 4 byte aligned
+    dd MAGIC_NUMBER                     ; write the magic number to the machine code,
+    dd FLAGS                            ; the flags,
+    dd CHECKSUM                         ; and the checksum
 
+; start of the text (code) section
+section .setup.text
 
-section .text                                  ; start of the text (code)
-loader:                                        ; the loader label (defined as entry point in linker script)
-    mov  esp, kernel_stack + KERNEL_STACK_SIZE ; setup stack register to proper location
+loader equ (loader_entrypoint - KERNEL_VIRT_BASE)
+
+; the loader label (defined as entry point in linker script)
+loader_entrypoint:
+    ; Build the initial 4 KiB identity/high-half mappings before paging is on.
+    mov edi, _pg_kernel_pg_table - KERNEL_VIRT_BASE
+    xor eax, eax
+    mov ecx, 1024
+
+.fill_kernel_page_table:
+    mov edx, eax
+    or  edx, 0x3
+    mov [edi], edx
+    add edi, 4
+    add eax, 0x1000
+    loop .fill_kernel_page_table
+
+    mov eax, _pg_kernel_pg_table - KERNEL_VIRT_BASE
+    or  eax, 0x3
+    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE], eax
+    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE + 0xC00], eax
+
+    ; Recursive page directory entry
+    mov eax, _pg_kernel_pg_table - KERNEL_VIRT_BASE
+    or  eax, 0x3
+    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE], eax
+    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE + 0xC00], eax
+
+    ; Recursive mapping at index 1023 (offset 0xFFC) for 0xFFC00000
+    mov eax, _pg_kernel_pg_dir - KERNEL_VIRT_BASE
+    or  eax, 0x3
+    mov [_pg_kernel_pg_dir - KERNEL_VIRT_BASE + 0xFFC], eax
+
+    ; Set CR3 (CPU page register)
+    mov eax, _pg_kernel_pg_dir - KERNEL_VIRT_BASE
+    mov cr3, eax
+
+    ; Disable 4 MiB pages
+    ; all mappings use 4 KiB page tables.
+    mov eax, cr4
+    and eax, 0xFFFFFFEF
+    mov cr4, eax
+
+    ; Enable paging
+    mov eax, cr0
+    
+    ; PG flag
+    or  eax, 0x80000000
+
+    mov cr0, eax
+
+    ; Jump into higher half first,
+    ; cannot use C because call stack is still not working
+    lea eax, [loader_virtual]
+    jmp eax
+
+loader_virtual:
+    mov dword [_pg_kernel_pg_dir], 0
+    mov eax, cr3
+    mov cr3, eax                                    ; Delete identity mapping and invalidate TLB cache for first page
+    mov esp, kernel_stack + KERNEL_STACK_SIZE       ; Setup stack register to proper location
     call kernel_setup
-.loop:
-    jmp .loop                                  ; loop forever
 
+.loop:
+    jmp .loop                                       ; loop forever
 
 ; More details: https://en.wikibooks.org/wiki/X86_Assembly/Protected_Mode
+
+section .text
+
 load_gdt:
     cli
     mov  eax, [esp+4]
-    lgdt [eax] ; Load GDT from GDTDescriptor, eax at this line will point GDTR location
+
+    ; Load GDT from GDTDescriptor,
+    ; eax at this line will point GDTR location
+    lgdt [eax]
 
     ; Set bit-0 (Protection Enable bit-flag) in Control Register 0 (CR0)
     ; This is optional, as usually GRUB already start with protected mode flag enabled
@@ -41,11 +110,18 @@ load_gdt:
     mov  cr0, eax
 
     ; Far jump to update cs register
-    ; Warning: Invalid GDT will raise exception in following instruction below
+    ; Warning: Invalid GDT will raise exception in any instruction below
     jmp 0x8:flush_cs
+
 flush_cs:
-    mov ax, 10h ; Update all segment register
+    ; Update all segment register
+    mov ax, 10h
     mov ss, ax
     mov ds, ax
     mov es, ax
+    ret
+
+set_tss_register:
+    mov ax, 0x28 | 0 ; GDT TSS Selector, ring 0
+    ltr ax
     ret

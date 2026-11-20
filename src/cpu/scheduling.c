@@ -1,12 +1,13 @@
 #include "cpu/scheduling.h"
 #include "cpu/interrupt.h"
+#include "memory/paging.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 static Queue ready;
 static Queue waiting[MAX_IO_DEVICES];
-static Process *running = NULL;
+static struct ProcessControlBlock *running = NULL;
 
 Queue make_queue() {
     Queue q;
@@ -18,17 +19,18 @@ Queue make_queue() {
     return q;
 }
 
-int push(Queue *q, Process *p) {
+int push(Queue *q, struct ProcessControlBlock *p) {
     if (p == NULL || queue_length(q) == QUEUE_CAPACITY) return 1;
     int i = q->head;
     if (q->buffer[i] != NULL) {
         q->head = (q->head+1) % QUEUE_CAPACITY;
-        bool resume = q->buffer[i]->priority > p->priority;
+        bool resume = q->buffer[i]->metadata.priority > p->metadata.priority;
         while (resume) {
             q->buffer[(i+1)%QUEUE_CAPACITY] = q->buffer[i];
             i = (QUEUE_CAPACITY+i-1) % QUEUE_CAPACITY;
             resume = i != (QUEUE_CAPACITY+q->tail-1) % QUEUE_CAPACITY;
-            if (resume) resume = q->buffer[i]->priority > p->priority;
+            if (resume)
+                resume = q->buffer[i]->metadata.priority > p->metadata.priority;
         }
         i = (i+1) % QUEUE_CAPACITY;
     }
@@ -36,7 +38,7 @@ int push(Queue *q, Process *p) {
     return 0;
 }
 
-int pop(Queue *q, Process **p) {
+int pop(Queue *q, struct ProcessControlBlock **p) {
     if (p == NULL || queue_length(q) == 0) return 1;
     *p = q->buffer[q->tail];
     q->buffer[q->tail] = NULL;
@@ -55,56 +57,50 @@ uint32_t queue_length(const Queue *q) {
 
 int cpu_save(struct InterruptFrame *frame) {
     if (frame == NULL) return 1;
-    running->block.frame = frame;
-    running->block.eax = frame->cpu.general.eax;
-    running->block.ebx = frame->cpu.general.ebx;
-    running->block.ecx = frame->cpu.general.ecx;
-    running->block.edx = frame->cpu.general.edx;
-    running->block.esi = frame->cpu.index.esi;
-    running->block.edi = frame->cpu.index.edi;
-    running->block.ebp = frame->cpu.stack.ebp;
-    /* Stack position after iret, not PUSHAD's saved-ESP slot. */
-    running->block.esp = (uint64_t) frame + sizeof(*frame);
-    running->block.eip = frame->int_stack.eip;
-    running->block.eflags = frame->int_stack.eflags;
-    running->block.cs = frame->int_stack.cs;
-    running->block.ds = frame->cpu.segment.ds;
-    running->block.es = frame->cpu.segment.es;
-    running->block.fs = frame->cpu.segment.fs;
-    running->block.gs = frame->cpu.segment.gs;
-    /* This interrupt frame does not contain SS for same-privilege interrupts. */
+    if (running == NULL) return 0;
+
+    struct Context *context = &running->context;
+    context->interrupt_frame = frame;
+    context->cpu = frame->cpu;
+    /* Save the stack position after iret, not PUSHAD's ignored ESP slot. */
+    context->cpu.stack.esp = (uint32_t) frame + sizeof(*frame);
+    context->eip = frame->int_stack.eip;
+    context->cs = frame->int_stack.cs;
+    context->eflags = frame->int_stack.eflags;
+    context->page_directory_virtual_addr =
+        (uint32_t) paging_get_current_page_directory_addr();
     return 0;
 }
 
 struct InterruptFrame *cpu_load(struct InterruptFrame *current_frame) {
     if (running == NULL) return current_frame;
 
-    struct InterruptFrame *frame = running->block.frame;
+    struct Context *context = &running->context;
+    struct InterruptFrame *frame = context->interrupt_frame;
+    bool first_dispatch = frame == NULL;
     if (frame == NULL) {
         /* First dispatch: construct the same frame the ISR stub normally restores. */
-        if (running->block.esp < sizeof(*frame)) return current_frame;
-        frame = (struct InterruptFrame *)(running->block.esp - sizeof(*frame));
-        running->block.frame = frame;
+        if (context->cpu.stack.esp < sizeof(*frame)) return current_frame;
+        frame = (struct InterruptFrame *)(context->cpu.stack.esp - sizeof(*frame));
+        context->interrupt_frame = frame;
+    }
+
+    if (context->page_directory_virtual_addr != 0) {
+        paging_use_page_directory(
+            (struct PgDir *) context->page_directory_virtual_addr
+        );
+    }
+
+    if (first_dispatch) {
         frame->int_number = 0;
         frame->int_stack.error_code = 0;
     }
-
-    frame->cpu.general.eax = running->block.eax;
-    frame->cpu.general.ebx = running->block.ebx;
-    frame->cpu.general.ecx = running->block.ecx;
-    frame->cpu.general.edx = running->block.edx;
-    frame->cpu.index.esi = running->block.esi;
-    frame->cpu.index.edi = running->block.edi;
-    frame->cpu.stack.ebp = running->block.ebp;
-    /* PUSHAD's saved ESP slot is ignored by POPAD. */
-    frame->cpu.stack.esp = (uint64_t) frame + 32;
-    frame->int_stack.eip = running->block.eip;
-    frame->int_stack.eflags = running->block.eflags;
-    frame->int_stack.cs = running->block.cs;
-    frame->cpu.segment.ds = running->block.ds;
-    frame->cpu.segment.es = running->block.es;
-    frame->cpu.segment.fs = running->block.fs;
-    frame->cpu.segment.gs = running->block.gs;
+    frame->cpu = context->cpu;
+    /* POPAD ignores this slot; the stub switches ESP to frame itself. */
+    frame->cpu.stack.esp = (uint32_t) frame + 32;
+    frame->int_stack.eip = context->eip;
+    frame->int_stack.cs = context->cs;
+    frame->int_stack.eflags = context->eflags;
     return frame;
 }
 
@@ -118,7 +114,7 @@ void scheduler_init(void) {
 }
 
 int queue_to_queue(Queue *q1, Queue *q2) {
-    Process *p = NULL;
+    struct ProcessControlBlock *p = NULL;
     if (pop(q1, &p)) return 1;
     if (push(q2, p)) {
         (void) push(q1, p);
@@ -128,15 +124,34 @@ int queue_to_queue(Queue *q1, Queue *q2) {
 }
 
 int rr_switch() {
-    if (push(&ready, running)) return 1;
-    return pop(&ready, &running);
+    if (running != NULL) {
+        running->metadata.state = PROCESS_STATE_READY;
+        if (push(&ready, running)) return 1;
+    }
+    if (pop(&ready, &running)) return 1;
+    running->metadata.state = PROCESS_STATE_RUNNING;
+    return 0;
 }
 
 int io_start(uint32_t device_idx) {
-    if (push(&waiting[device_idx], running)) return 1;
-    return pop(&ready, &running);
+    if (device_idx >= MAX_IO_DEVICES || running == NULL) return 1;
+    struct ProcessControlBlock *blocked = running;
+    if (push(&waiting[device_idx], blocked)) return 1;
+    blocked->metadata.state = PROCESS_STATE_BLOCKED;
+    running = NULL;
+    if (pop(&ready, &running)) return 1;
+    running->metadata.state = PROCESS_STATE_RUNNING;
+    return 0;
 }
 
 int io_finish(uint32_t device_idx) {
-    return queue_to_queue(&waiting[device_idx], &ready);
+    if (device_idx >= MAX_IO_DEVICES) return 1;
+    struct ProcessControlBlock *woken = NULL;
+    if (pop(&waiting[device_idx], &woken)) return 1;
+    if (push(&ready, woken)) {
+        (void) push(&waiting[device_idx], woken);
+        return 1;
+    }
+    woken->metadata.state = PROCESS_STATE_READY;
+    return 0;
 }

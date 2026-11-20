@@ -187,6 +187,6 @@ void pic_remap(void);
  * @param frame
  * Information about CPU during interrupt is raised
  */
-struct InterruptFrame *main_interrupt_handler(struct InterruptFrame *frame);
+struct InterruptFrame *main_interrupt_handler(void);
 
 #endif
