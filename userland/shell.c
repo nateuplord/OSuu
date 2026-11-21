@@ -1376,9 +1376,36 @@ int shell_grep(char **args) {
                     shell_printf(path);
                     shell_printf(":");
                 }
+                uint32_t output_offset = 0;
+                if (pattern_length != 0) {
+                    while (output_offset + pattern_length <= line_length) {
+                        uint32_t match_offset = output_offset;
+                        while (match_offset + pattern_length <= line_length &&
+                            memcmp(
+                                shell_file_buffer + line_start + match_offset,
+                                pattern,
+                                pattern_length
+                            ) != 0) {
+                            match_offset++;
+                        }
+                        if (match_offset + pattern_length > line_length) break;
+
+                        shell_printf_n(
+                            (const char *)shell_file_buffer + line_start + output_offset,
+                            match_offset - output_offset
+                        );
+                        shell_printf("\x1B[31m");
+                        shell_printf_n(
+                            (const char *)shell_file_buffer + line_start + match_offset,
+                            pattern_length
+                        );
+                        shell_printf("\x1B[0m");
+                        output_offset = match_offset + pattern_length;
+                    }
+                }
                 shell_printf_n(
-                    (const char *)shell_file_buffer + line_start,
-                    line_length
+                    (const char *)shell_file_buffer + line_start + output_offset,
+                    line_length - output_offset
                 );
                 shell_printf("\n");
             }
