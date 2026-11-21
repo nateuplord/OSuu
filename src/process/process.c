@@ -48,7 +48,7 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
 
     // Check whether memory is enough for the executable and additional frame for user stack
     uint32_t page_frame_count_needed =
-        ceil_div(request.buffer_size + PAGE_FRAME_SIZE, PAGE_FRAME_SIZE);
+        ceil_div(request.buffer_size + FRAME_SIZE, FRAME_SIZE);
     if (!paging_allocate_check(page_frame_count_needed) ||
         page_frame_count_needed > PROCESS_PAGE_FRAME_COUNT_MAX) {
         retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
