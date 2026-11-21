@@ -58,12 +58,15 @@ int shell_execute(char **args);
 int shell_split_line(char *line, char **args);
 int enter_command(void);
 
+int shell_sudo(char **args);
 int shell_cd(char **args);
 int shell_ls(char **args);
 int shell_mkdir(char **args);
 int shell_cat(char **args);
+int shell_grep(char **args);
 int shell_cp(char **args);
 int shell_mv(char **args);
+int shell_rm(char **args);
 int shell_find(char **args);
 int shell_echo(char **args);
 int shell_pwd(char **args);

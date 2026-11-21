@@ -61,6 +61,14 @@ void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg)
     syscall(SYSCALL_TEXT_WRITE_AT, row, col, (uint8_t) c);
 }
 
+void framebuffer_putchar(char c, uint8_t attribute) {
+    syscall(SYSCALL_TEXT_PUTCHAR, (uint8_t)c, attribute, 0);
+}
+
+void framebuffer_puts(const char *buf, uint32_t count, uint8_t attribute) {
+    syscall(SYSCALL_TEXT_PUTS, (uint32_t)buf, count, attribute);
+}
+
 void framebuffer_set_cursor(uint8_t r, uint8_t c) {
     syscall(SYSCALL_TEXT_SET_CURSOR, r, c, 0);
 }

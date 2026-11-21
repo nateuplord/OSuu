@@ -33,6 +33,8 @@ void write_blocks(
 );
 
 void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg);
+void framebuffer_putchar(char c, uint8_t attribute);
+void framebuffer_puts(const char *buf, uint32_t count, uint8_t attribute);
 void framebuffer_set_cursor(uint8_t r, uint8_t c);
 void framebuffer_scroll_up(void);
 void framebuffer_clear(void);

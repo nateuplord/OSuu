@@ -21,18 +21,25 @@ static bool history_draft_saved;
 static uint32_t current_directory_inode = 1;
 static uint8_t shell_printf_row = 0;
 static uint8_t shell_printf_col = 0;
+static uint8_t shell_printf_fg = 0x0F;
+static uint8_t shell_printf_bg = 0;
 static uint8_t shell_file_buffer[USER_FILE_BUFFER_SIZE];
 static char shell_arg_storage[SHELL_MAX_ARGS - 1][SHELL_BUFFER_SIZE];
 static char shell_find_path[SHELL_BUFFER_SIZE];
 static struct BlockBuffer shell_find_directory_buffer;
+static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
+static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
 const char *builtin_cmd[] = {
+    "sudo",
     "cd",
     "ls",
     "mkdir",
     "cat",
+    "grep",
     "cp",
     "mv",
+    "rm",
     "find",
     "echo",
     "pwd",
@@ -41,12 +48,15 @@ const char *builtin_cmd[] = {
 };
 
 int (*builtin_func[]) (char **) = {
+    &shell_sudo,
     &shell_cd,
     &shell_ls,
     &shell_mkdir,
     &shell_cat,
+    &shell_grep,
     &shell_cp,
     &shell_mv,
+    &shell_rm,
     &shell_find,
     &shell_echo,
     &shell_pwd,
@@ -295,31 +305,122 @@ int8_t resolve_path(uint32_t start_inode, const char *path, uint32_t *resolved_i
     }
 }
 
+static uint8_t shell_printf_attribute(void) {
+    return (uint8_t)((shell_printf_bg << 4) | (shell_printf_fg & 0x0F));
+}
+
+static void shell_printf_write(const char *message, uint32_t length) {
+    if (length == 0) return;
+    framebuffer_puts(message, length, shell_printf_attribute());
+    for (uint32_t i = 0; i < length; i++) {
+        if (message[i] == '\n') {
+            if (shell_printf_row + 1 < FRAMEBUFFER_HEIGHT) {
+                shell_printf_row++;
+            }
+            shell_printf_col = 0;
+        } else {
+            shell_printf_col++;
+            if (shell_printf_col >= FRAMEBUFFER_WIDTH) {
+                shell_printf_col = 0;
+                if (shell_printf_row + 1 < FRAMEBUFFER_HEIGHT) {
+                    shell_printf_row++;
+                }
+            }
+        }
+    }
+}
+
+static uint32_t shell_parse_sgr(
+    const char *message,
+    uint32_t length,
+    uint32_t start
+) {
+    uint16_t parameters[16];
+    uint32_t parameter_count = 0;
+    uint32_t value = 0;
+    bool has_digit = false;
+    uint32_t i = start + 2;
+
+    if (start + 1 >= length || message[start] != '\x1B' ||
+        message[start + 1] != '[') {
+        return 0;
+    }
+
+    for (; i < length; i++) {
+        if (i - start > 64) return 0;
+        char c = message[i];
+        if (c >= '0' && c <= '9') {
+            value = value * 10 + (uint32_t)(c - '0');
+            if (value > 999) return 0;
+            has_digit = true;
+        } else if (c == ';' || c == 'm') {
+            if (parameter_count >= 16) return 0;
+            parameters[parameter_count++] = has_digit ? (uint16_t)value : 0;
+            value = 0;
+            has_digit = false;
+            if (c == 'm') break;
+        } else {
+            return 0;
+        }
+    }
+    if (i >= length || message[i] != 'm') return 0;
+
+    static const uint8_t ansi_to_vga[8] = {0, 4, 2, 6, 1, 5, 3, 7};
+    for (uint32_t p = 0; p < parameter_count; p++) {
+        uint16_t code = parameters[p];
+        if (code == 0) {
+            shell_printf_fg = 0x0F;
+            shell_printf_bg = 0;
+        } else if (code >= 30 && code <= 37) {
+            shell_printf_fg = ansi_to_vga[code - 30];
+        } else if (code >= 90 && code <= 97) {
+            shell_printf_fg = (uint8_t)(ansi_to_vga[code - 90] + 8);
+        } else if (code >= 40 && code <= 47) {
+            shell_printf_bg = ansi_to_vga[code - 40];
+        } else if (code >= 100 && code <= 107) {
+            shell_printf_bg = (uint8_t)(ansi_to_vga[code - 100] + 8);
+        } else if (code == 39) {
+            shell_printf_fg = 0x0F;
+        } else if (code == 49) {
+            shell_printf_bg = 0;
+        }
+    }
+    return i - start + 1;
+}
+
 static void shell_printf_newline(void) {
+    framebuffer_putchar('\n', shell_printf_attribute());
     if (shell_printf_row + 1 < FRAMEBUFFER_HEIGHT) {
         shell_printf_row++;
-    } else {
-        framebuffer_scroll_up();
     }
     shell_printf_col = 0;
 }
 
 static void shell_printf_n(const char *message, uint32_t length) {
-    for (uint32_t i = 0; i < length; i++) {
+    uint32_t i = 0;
+    while (i < length) {
         if (message[i] == '\n') {
             shell_printf_newline();
-        } else {
-            if (shell_printf_col >= FRAMEBUFFER_WIDTH) {
-                shell_printf_newline();
+            i++;
+        }
+        else {
+            uint32_t consumed = 0;
+            if (message[i] == '\x1B' && i + 1 < length &&
+                message[i + 1] == '[') {
+                consumed = shell_parse_sgr(message, length, i);
             }
-            framebuffer_write(
-                shell_printf_row,
-                shell_printf_col,
-                message[i],
-                0xF,
-                0
-            );
-            shell_printf_col++;
+            if (consumed != 0) {
+                i += consumed;
+            }
+            else {
+                uint32_t text_start = i;
+                while (i < length && message[i] != '\n' &&
+                    message[i] != '\x1B') {
+                    i++;
+                }
+                if (i == text_start) i++;
+                shell_printf_write(message + text_start, i - text_start);
+            }
         }
     }
 }
@@ -708,6 +809,166 @@ static int resolve_copy_destination(
     return 0;
 }
 
+static void print_path_error(const char *command, const char *path, int result);
+
+static int shell_rm_entry(
+    uint32_t parent_inode,
+    const char *name,
+    uint32_t depth
+) {
+    if (depth >= SHELL_PATH_DEPTH_MAX) return -1;
+
+    uint32_t target_inode;
+    bool is_directory;
+    int found = find_entry(parent_inode, name, &target_inode, &is_directory);
+    if (found == 0) return 1;
+    if (found != 1) return -1;
+    if (is_directory &&
+        (target_inode == 1 || target_inode == current_directory_inode)) {
+        return -1;
+    }
+
+    if (is_directory) {
+        struct EXT2Inode directory;
+        get_node(&directory, target_inode);
+        if ((directory.i_mode & EXT2_S_IFDIR) == 0) return -1;
+
+        while (true) {
+            read_blocks(
+                &shell_rm_directory_buffers[depth], directory.i_block[0], 1
+            );
+            uint32_t offset = get_dir_first_child_offset(
+                shell_rm_directory_buffers[depth].buf
+            );
+            bool has_child = false;
+            while (offset < BLOCK_SIZE) {
+                struct EXT2DirectoryEntry *entry = get_directory_entry(
+                    shell_rm_directory_buffers[depth].buf, offset
+                );
+                if (entry->inode == 0) break;
+                if (entry->rec_len == 0 ||
+                    entry->rec_len > BLOCK_SIZE - offset ||
+                    sizeof(*entry) + entry->name_len > entry->rec_len ||
+                    entry->name_len > UINT8_MAX) {
+                    return -1;
+                }
+                char *child_name = shell_rm_child_names[depth];
+                strcopy_len(get_entry_name(entry), child_name, entry->name_len);
+                offset += entry->rec_len;
+                if (streq(child_name, ".") || streq(child_name, "..")) {
+                    continue;
+                }
+                if (depth + 1 >= SHELL_PATH_DEPTH_MAX ||
+                    shell_rm_entry(target_inode, child_name, depth + 1) != 0) {
+                    return -1;
+                }
+                has_child = true;
+                break;
+            }
+            if (!has_child) break;
+        }
+    }
+
+    struct EXT2DriverRequest request = {
+        .buf = NULL,
+        .name = (char *)name,
+        .name_len = (uint8_t)str_len(name),
+        .parent_inode = parent_inode,
+        .buffer_size = 0,
+        .is_directory = is_directory
+    };
+    return delete(request);
+}
+
+int shell_rm(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf("rm: rm [OPTION] PATH\nRemove a file or directory.\n");
+        return 1;
+    }
+    bool force_recursive = false;
+    char *path;
+    if (args == NULL || args[1] == NULL) {
+        shell_printf("rm: missing operand\n");
+        return 1;
+    }
+    if (streq(args[1], "-rf")) {
+        force_recursive = true;
+    }
+    if (force_recursive) {
+        if (args[2] == NULL) return 1;
+        path = args[2];
+    } else {
+        path = args[1];
+    }
+    if (path == NULL) {
+        shell_printf("rm: missing operand\n");
+        return 1;
+    }
+
+    uint32_t parent_inode;
+    char name[UINT8_MAX + 1];
+    int result = resolve_parent_and_name(path, &parent_inode, name);
+    if (result != 0) {
+        if (force_recursive && result == 2) return 1;
+        print_path_error("rm: ", path, result);
+        return 1;
+    }
+    if (streq(name, ".") || streq(name, "..") ||
+        !shell_directory_entries_valid(parent_inode)) {
+        shell_print_error("rm: cannot remove '", path, "': Invalid path");
+        shell_printf("\n");
+        return 1;
+    }
+
+    uint32_t target_inode;
+    bool is_directory;
+    int found = find_entry(parent_inode, name, &target_inode, &is_directory);
+    if (found == 0) {
+        shell_print_error("rm: cannot remove '", path, "': No such file or directory");
+        shell_printf("\n");
+        return 1;
+    }
+    if (found < 0) {
+        shell_print_error("rm: cannot remove '", path, "': Unable to access directory");
+        shell_printf("\n");
+        return 1;
+    }
+    if (is_directory && !force_recursive) {
+        shell_print_error("rm: cannot remove '", path, "': Is a directory");
+        shell_printf("\n");
+        return 1;
+    }
+    if (is_directory && (target_inode == 1 || target_inode == current_directory_inode)) {
+        shell_print_error("rm: cannot remove '", path, "': Operation not permitted");
+        shell_printf("\n");
+        return 1;
+    }
+
+    if (force_recursive) {
+        result = shell_rm_entry(parent_inode, name, 0);
+    }
+    else {
+        struct EXT2DriverRequest request = {
+            .buf = NULL,
+            .name = name,
+            .name_len = (uint8_t)str_len(name),
+            .parent_inode = parent_inode,
+            .buffer_size = 0,
+            .is_directory = is_directory
+        };
+        result = delete(request);
+    }
+    if (result == 3) {
+        shell_print_error("rm: cannot remove '", path, "': Not a directory");
+    } else if (result != 0) {
+        shell_print_error("rm: cannot remove '", path, "': Unable to remove");
+    } else {
+        return 1;
+    }
+    shell_printf("\n");
+    return 1;
+}
+
 static void print_path_error(const char *command, const char *path, int result) {
     const char *reason;
     if (result == 1 || result == 3) {
@@ -746,6 +1007,8 @@ void start_shell() {
     history_draft_saved = false;
     shell_printf_row = 0;
     shell_printf_col = 0;
+    shell_printf_fg = 0x0F;
+    shell_printf_bg = 0;
     shell_history.buffer[0].length = 0;
     shell_history.buffer[0].buffer[0] = '\0';
     shell_print_prompt();
@@ -830,6 +1093,10 @@ int enter_command() {
     history_view_idx = -1;
     history_draft_saved = false;
     shell_print_prompt();
+    return 1;
+}
+
+int shell_sudo(char **args) {
     return 1;
 }
 
@@ -1044,6 +1311,111 @@ int shell_cat(char **args) {
         return 1;
     }
     shell_printf_n((const char *)shell_file_buffer, file.size);
+    return 1;
+}
+
+int shell_grep(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf("grep: grep [PATTERN] [FILE]...\nSearch files for matching lines.\n");
+        return 1;
+    }
+    if (args == NULL || args[1] == NULL) {
+        shell_printf("grep: missing pattern\n");
+        return 1;
+    }
+    const char *pattern = args[1];
+    if (args[2] == NULL) {
+        shell_printf("grep: missing file operand\n");
+        return 1;
+    }
+
+    int first_file_index = 2;
+    int file_count = 0;
+    while (args[first_file_index + file_count] != NULL) file_count++;
+
+    for (int file_index = 0; file_index < file_count; file_index++) {
+        const char *path = args[first_file_index + file_index];
+        struct ShellFilePath file;
+        int result = resolve_shell_file(path, &file);
+        if (result != 0) {
+            print_path_error("grep: ", path, result);
+            continue;
+        }
+        if (file.is_directory) {
+            shell_print_error("grep: ", path, ": Is a directory");
+            shell_printf("\n");
+            continue;
+        }
+        result = read_shell_file(&file);
+        if (result != 0) {
+            print_read_error("grep: ", path, result);
+            continue;
+        }
+
+        uint32_t pattern_length = (uint32_t)str_len(pattern);
+        uint32_t line_start = 0;
+        while (line_start < file.size) {
+            uint32_t line_end = line_start;
+            while (line_end < file.size && shell_file_buffer[line_end] != '\n') {
+                line_end++;
+            }
+            uint32_t line_length = line_end - line_start;
+
+            bool matched = pattern_length == 0;
+            for (uint32_t start = 0;
+                 !matched && start + pattern_length <= line_length;
+                 start++) {
+                if (memcmp(
+                        shell_file_buffer + line_start + start,
+                        pattern,
+                        pattern_length
+                    ) == 0) {
+                    matched = true;
+                }
+            }
+            if (matched) {
+                if (file_count > 1) {
+                    shell_printf(path);
+                    shell_printf(":");
+                }
+                uint32_t output_offset = 0;
+                if (pattern_length != 0) {
+                    while (output_offset + pattern_length <= line_length) {
+                        uint32_t match_offset = output_offset;
+                        while (match_offset + pattern_length <= line_length &&
+                            memcmp(
+                                shell_file_buffer + line_start + match_offset,
+                                pattern,
+                                pattern_length
+                            ) != 0) {
+                            match_offset++;
+                        }
+                        if (match_offset + pattern_length > line_length) break;
+
+                        shell_printf_n(
+                            (const char *)shell_file_buffer + line_start + output_offset,
+                            match_offset - output_offset
+                        );
+                        shell_printf("\x1B[31m");
+                        shell_printf_n(
+                            (const char *)shell_file_buffer + line_start + match_offset,
+                            pattern_length
+                        );
+                        shell_printf("\x1B[0m");
+                        output_offset = match_offset + pattern_length;
+                    }
+                }
+                shell_printf_n(
+                    (const char *)shell_file_buffer + line_start + output_offset,
+                    line_length - output_offset
+                );
+                shell_printf("\n");
+            }
+
+            if (line_end == file.size) break;
+            line_start = line_end + 1;
+        }
+    }
     return 1;
 }
 
