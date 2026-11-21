@@ -834,7 +834,7 @@ int enter_command() {
 
 int shell_cd(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("cd: cd [path]\nChange the current directory.\n");
+        shell_printf("cd: cd [PATH]\nChange the current directory.\n");
         return 1;
     }
     if (args == NULL) return 1;
@@ -861,7 +861,7 @@ int shell_cd(char **args) {
 
 int shell_ls(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("ls: ls [path]\nList everything in a directory.\n");
+        shell_printf("ls: ls [PATH]\nList everything in a directory.\n");
         return 1;
     }
     struct EXT2Inode ls_directory;
@@ -947,7 +947,7 @@ int shell_ls(char **args) {
 
 int shell_mkdir(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("mkdir: mkdir [directory]\nCreate a directory.\n");
+        shell_printf("mkdir: mkdir [DIRECTORY]\nCreate a directory.\n");
         return 1;
     }
     if (args == NULL || args[1] == NULL) return 1;
@@ -1022,7 +1022,7 @@ int shell_mkdir(char **args) {
 
 int shell_cat(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("cat: cat [file]\nDisplay a file's contents.\n");
+        shell_printf("cat: cat [FILE]\nDisplay a file's contents.\n");
         return 1;
     }
     if (args == NULL || args[1] == NULL) return 1;
@@ -1048,7 +1048,7 @@ int shell_cat(char **args) {
 
 int shell_cp(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("cp: cp [source] [destination]\nCopy a file.\n");
+        shell_printf("cp: cp [SOURCE] [DESTINATION]\nCopy a file.\n");
         return 1;
     }
     if (args == NULL || args[1] == NULL || args[2] == NULL) return 1;
@@ -1111,7 +1111,7 @@ int shell_cp(char **args) {
 
 int shell_mv(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("mv: mv [source] [destination]\nMove a file.\n");
+        shell_printf("mv: mv [SOURCE] [DESTINATION]\nMove a file.\n");
         return 1;
     }
     if (args == NULL || args[1] == NULL || args[2] == NULL) return 1;
@@ -1196,7 +1196,7 @@ int shell_mv(char **args) {
 
 int shell_find(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("Usage: find [path]\nList files and directories recursively.\n");
+        shell_printf("Usage: find [PATH]\nList files and directories recursively.\n");
         return 1;
     }
     bool root_call = args == NULL || args[1] == NULL;
@@ -1276,7 +1276,7 @@ int shell_find(char **args) {
 
 int shell_echo(char **args) {
     if (args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("Usage: echo [text]\nDisplay the supplied text.\n");
+        shell_printf("Usage: echo [TEXT]\nDisplay the supplied text.\n");
         return 1;
     }
     if (args == NULL || args[0] == NULL  || args[1] == NULL) return 1;
