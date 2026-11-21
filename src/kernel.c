@@ -7,9 +7,7 @@
 #include "driver/keyboard.h"
 #include "driver/pit.h"
 #include "fs/ext2.h"
-#include "memory/paging.h"
 #include "memory/swap.h"
-#include "misc/badapple.h"
 #include "shell/shell.h"
 #include "text/framebuffer.h"
 #include <stdbool.h>
@@ -25,6 +23,8 @@ static void new_line(void) {
 
 void kernel_setup(struct Multiboot2Info *mb_info) {
     load_gdt(&gdtr);
+    gdt_install_tss();
+    set_tss_register();
     pic_remap();
     pit_init(100);
     initialize_filesystem_ext2();

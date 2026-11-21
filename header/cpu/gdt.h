@@ -14,8 +14,18 @@
  */
 #define GDT_KERNEL_CODE_SEGMENT_SELECTOR 0x8
 #define GDT_KERNEL_DATA_SEGMENT_SELECTOR 0x10
-#define GDT_16BIT_CODE_SEGMENT_SELECTOR 0x18
-#define GDT_16BIT_DATA_SEGMENT_SELECTOR 0x20
+
+#define GDT_USER_CODE_SEGMENT_SELECTOR 0x18
+#define GDT_USER_DATA_SEGMENT_SELECTOR 0x20
+#define GDT_TSS_SELECTOR 0x28
+
+/** Used only by the VBE real-mode trampoline (src/boot/vbe.s). */
+#define GDT_16BIT_CODE_SEGMENT_SELECTOR 0x30
+#define GDT_16BIT_DATA_SEGMENT_SELECTOR 0x38
+
+/** Selectors with RPL = 3, used for the initial frame that enters ring 3. */
+#define GDT_USER_CODE_SEGMENT_SELECTOR_RPL3 (GDT_USER_CODE_SEGMENT_SELECTOR | 3)
+#define GDT_USER_DATA_SEGMENT_SELECTOR_RPL3 (GDT_USER_DATA_SEGMENT_SELECTOR | 3)
 
 extern struct GDTR gdtr;
 
@@ -95,5 +105,8 @@ struct GDTR {
     /// GDT address, GDT should already defined properly
     struct GlobalDescriptorTable *address;
 } __attribute__((packed));
+
+// Set GDT_TSS_SELECTOR with proper TSS values, accessing _interrupt_tss_entry
+void gdt_install_tss(void);
 
 #endif

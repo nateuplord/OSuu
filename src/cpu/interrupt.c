@@ -1,8 +1,19 @@
 #include "cpu/interrupt.h"
+#include "boot/kernel-entrypoint.h"
 #include "cpu/portio.h"
 #include "driver/keyboard.h"
 #include "driver/pit.h"
 #include "memory/swap.h"
+
+struct TSSEntry _interrupt_tss_entry = {
+    .esp0 = (uint32_t) &_linker_kernel_stack_top,
+    .ss0 = GDT_KERNEL_DATA_SEGMENT_SELECTOR,
+};
+
+void set_tss_kernel_current_stack(void) {
+    // Frame address is the caller's EBP; +8 skips the saved EBP and return address.
+    _interrupt_tss_entry.esp0 = (uint32_t) __builtin_frame_address(0) + 8;
+}
 
 void io_wait(void) {
     out(0x80, 0);

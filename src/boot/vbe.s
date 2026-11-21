@@ -29,7 +29,7 @@ vbe_set_mode:
     mov edi, .trampoline_returned  ; return address, passed to the trampoline in edi
 
     cli
-    jmp 0x18:realmode_start         ; GDT_16BIT_CODE_SEGMENT_SELECTOR
+    jmp 0x30:realmode_start         ; GDT_16BIT_CODE_SEGMENT_SELECTOR
 
 .trampoline_returned:
     ; back in our own protected mode here, landed via the trampoline's far jump
@@ -85,7 +85,7 @@ section .realmode
 bits 16
 
 vbe_trampoline:
-    mov ax, 0x20                    ; GDT_16BIT_DATA_SEGMENT_SELECTOR
+    mov ax, 0x38                    ; GDT_16BIT_DATA_SEGMENT_SELECTOR
     mov ds, ax
     mov es, ax
     mov ss, ax

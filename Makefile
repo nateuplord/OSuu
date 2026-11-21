@@ -24,7 +24,7 @@ ASM_SRC := $(shell find $(SOURCE_FOLDER) -name '*.s')
 OBJS    := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
            $(ASM_SRC:$(SOURCE_FOLDER)/%.s=$(OUTPUT_FOLDER)/%.o)
 
-.PHONY: run clean build kernel iso disk test-sample
+.PHONY: run clean build kernel iso disk test-sample inserter user-shell insert-shell
 
 SAMPLE_IMAGE = .kit/ch2/sample-image.bin
 
@@ -37,7 +37,8 @@ test-sample: clean build
 
 clean:
 # @rm -rf $(OUTPUT_FOLDER)/*
-	@rm -rf *.o *.iso $(OUTPUT_FOLDER)/cpu/ $(OUTPUT_FOLDER)/driver/ $(OUTPUT_FOLDER)/stdlib/ $(OUTPUT_FOLDER)/text/
+	@rm -rf *.o *.iso $(OUTPUT_FOLDER)/cpu/ $(OUTPUT_FOLDER)/driver/ $(OUTPUT_FOLDER)/stdlib/ $(OUTPUT_FOLDER)/text/ $(OUTPUT_FOLDER)/inserter \
+		$(OUTPUT_FOLDER)/crt0.o $(OUTPUT_FOLDER)/user-shell.o $(OUTPUT_FOLDER)/userprog/
 
 build: iso
 
@@ -68,6 +69,39 @@ DISK_NAME = storage
 
 disk:
 	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 5M
+
+# Host-side tool: inject a file into the ext2 disk image
+HOST_CC       = gcc
+HOST_CFLAGS   = -std=c11 -Wall -Wextra -g -Wno-builtin-declaration-mismatch -I$(HEADER_FOLDER)
+INSERTER_SRC  = tools/inserter/external-inserter.c \
+                $(SOURCE_FOLDER)/fs/ext2.c \
+                $(SOURCE_FOLDER)/stdlib/string.c
+
+inserter: bin/inserter
+
+bin/inserter: $(INSERTER_SRC)
+	@mkdir -p $(OUTPUT_FOLDER)
+	@$(HOST_CC) $(HOST_CFLAGS) $(INSERTER_SRC) -o $@
+
+# User program: flat binary linked at 0x0, inserted as a file in the ext2 image
+USER_FOLDER = userland
+USER_BIN    = $(OUTPUT_FOLDER)/userprog/shell
+
+$(USER_BIN): $(USER_FOLDER)/crt0.s $(USER_FOLDER)/user-shell.c $(USER_FOLDER)/linker.ld
+	@mkdir -p $(dir $@)
+	@$(ASM) $(ASM_FLAGS) $(USER_FOLDER)/crt0.s -o $(OUTPUT_FOLDER)/crt0.o
+	@$(CC) $(C_FLAGS) -fno-pie $(USER_FOLDER)/user-shell.c -o $(OUTPUT_FOLDER)/user-shell.o
+	@$(LINK) -T $(USER_FOLDER)/linker.ld -melf_i386 --oformat=binary \
+		$(OUTPUT_FOLDER)/crt0.o $(OUTPUT_FOLDER)/user-shell.o -o $@
+	@echo Linking user object files and generating flat binary...
+	@size --target=binary $@
+
+user-shell: $(USER_BIN)
+
+insert-shell: $(USER_BIN) inserter
+	@echo Inserting shell into root directory...
+	@cd $(OUTPUT_FOLDER)/userprog && ../inserter -f shell 1 ../$(DISK_NAME).bin
+
 
 # paging testing
 # debugpaging: clean build
