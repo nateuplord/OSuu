@@ -29,6 +29,7 @@ static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
 const char *builtin_cmd[] = {
+    "sudo",
     "cd",
     "ls",
     "mkdir",
@@ -44,6 +45,7 @@ const char *builtin_cmd[] = {
 };
 
 int (*builtin_func[]) (char **) = {
+    &shell_sudo,
     &shell_cd,
     &shell_ls,
     &shell_mkdir,
@@ -994,6 +996,10 @@ int enter_command() {
     history_view_idx = -1;
     history_draft_saved = false;
     shell_print_prompt();
+    return 1;
+}
+
+int shell_sudo(char **args) {
     return 1;
 }
 

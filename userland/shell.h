@@ -58,6 +58,7 @@ int shell_execute(char **args);
 int shell_split_line(char *line, char **args);
 int enter_command(void);
 
+int shell_sudo(char **args);
 int shell_cd(char **args);
 int shell_ls(char **args);
 int shell_mkdir(char **args);
