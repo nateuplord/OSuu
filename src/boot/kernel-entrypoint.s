@@ -174,6 +174,6 @@ kernel_execute_user_program:
     pop  ebx
     or   ebx, 0x200          ; Ensure IF (Interrupt Enable) is set
     push ebx                 ; EFLAGS
-    push 0x18 | 0x3          ; CS (User Code selector 0x1B)[cite: 205]
+    push 0x18 | 0x3          ; CS (User Code selector 0x1B)
     push eax                 ; EIP (0x0)
     iret

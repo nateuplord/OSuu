@@ -73,6 +73,8 @@ void init_directory_table(
     uint32_t parent_inode
 ) {
     struct BlockBuffer buf;
+    // zero out unused dir bytes
+    memset(&buf, 0, sizeof(buf));
     struct EXT2DirectoryEntry *dot = get_directory_entry(buf.buf, 0);
 
     dot->inode = inode;
@@ -701,6 +703,10 @@ int8_t read_directory(struct EXT2DriverRequest *request) {
             break;
         }
 
+        if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset) {
+            break;
+        }
+
         if ((entry->name_len == request->name_len) &&
             memcmp(get_entry_name(entry), request->name, request->name_len) ==
                 0) {
@@ -737,6 +743,10 @@ int8_t read(struct EXT2DriverRequest request) {
             get_directory_entry(parent_buf.buf, offset);
 
         if (entry->inode == 0) {
+            break;
+        }
+
+        if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset) {
             break;
         }
 
@@ -826,6 +836,9 @@ struct EXT2DirectoryEntry *find_insert_slot(
     struct EXT2DirectoryEntry *entry = get_directory_entry(parent_buf, 0);
 
     while (offset + entry->rec_len < BLOCK_SIZE) {
+        if (entry->rec_len == 0) {
+            return NULL;
+        }
         offset += entry->rec_len;
         entry = get_next_directory_entry(entry);
     }
@@ -867,6 +880,10 @@ int8_t write(struct EXT2DriverRequest *request) {
             break;
         }
 
+        if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset) {
+            break;
+        }
+
         if ((entry->name_len == request->name_len) &&
             entry->file_type == desired_type &&
             memcmp(get_entry_name(entry), request->name, request->name_len) ==
@@ -881,6 +898,26 @@ int8_t write(struct EXT2DriverRequest *request) {
         find_insert_slot(&parent_buf, request->name_len);
 
     if (new_entry == NULL) {
+        return -1;
+    }
+
+    // check if superblock has enough free inodes and free data + indirect blocks
+    uint32_t data_blocks = creating_dir
+        ? 1
+        : ((request->buffer_size + BLOCK_SIZE - 1) / BLOCK_SIZE);
+    uint32_t metadata_blocks = 0;
+    if (data_blocks > 12) {
+        metadata_blocks += 1; // singly indirect block
+        if (data_blocks > 12 + 128) {
+            metadata_blocks += 1 + ((data_blocks - 12 - 128 + 127) / 128); // doubly + singly indirect blocks
+        }
+    }
+
+    struct BlockBuffer sb_buf;
+    read_blocks(&sb_buf, 1, 1);
+    struct EXT2Superblock *sb = (struct EXT2Superblock *) sb_buf.buf;
+    if (sb->s_free_inodes_count == 0 ||
+        sb->s_free_blocks_count < data_blocks + metadata_blocks) {
         return -1;
     }
 
@@ -937,6 +974,10 @@ int8_t delete(struct EXT2DriverRequest request) {
             get_directory_entry(parent_buf.buf, offset);
 
         if (entry->inode == 0) {
+            break;
+        }
+
+        if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset) {
             break;
         }
 

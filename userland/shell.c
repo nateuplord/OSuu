@@ -1097,6 +1097,7 @@ int enter_command() {
 }
 
 int shell_sudo(char **args) {
+    (void)args;
     return 1;
 }
 

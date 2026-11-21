@@ -24,9 +24,26 @@ struct PgDir *paging_create_new_page_directory(void) {
             struct PgDir *new_dir = &page_directory_list[i];
 
             // Clear the table of the new dir to rid of any garbage values
-            for (uint32_t j = 0; j < 1024; j++) {
-                memset(new_dir->table, 0, sizeof(new_dir->table));
+            memset(new_dir->table, 0, sizeof(new_dir->table));
+
+            // copy higher-half kernel PDEs (0x300 ... 0x300 + KERNEL_RESERVED_PAGE_TABLE_COUNT - 1)
+            // from _pg_kernel_pg_dir so code, data, stack, and IDT are still mapped
+            for (uint32_t k = 0; k < KERNEL_RESERVED_PAGE_TABLE_COUNT; k++) {
+                new_dir->table[0x300 + k] = _pg_kernel_pg_dir.table[0x300 + k];
             }
+
+            // set up recursive page dir entry at 0xFFC00000 pointing to new_dir phys address
+            uint32_t new_dir_phys_addr = (uint32_t) new_dir - KERNEL_VIRTUAL_ADDRESS_BASE;
+            uint32_t frame_num = new_dir_phys_addr >> 12;
+
+            new_dir->table[RECURSIVE_PG_DIR_INDEX].flags =
+                (struct PgDirEntryFlags) {
+                    .present = true,
+                    .read_write = true,
+                    .user_supervisor = false,
+                };
+            new_dir->table[RECURSIVE_PG_DIR_INDEX].addr_low = frame_num & 0xF;
+            new_dir->table[RECURSIVE_PG_DIR_INDEX].addr_high = (frame_num >> 4) & 0xFFFF;
             /*
                 > present bit    true
                 > write bit      true
@@ -34,10 +51,10 @@ struct PgDir *paging_create_new_page_directory(void) {
                 > lower address  0
             */
 
-            new_dir->table[0x300].flags.present = 1;
-            new_dir->table[0x300].flags.read_write = 1;
-            new_dir->table[0x300].flags.pg_size = 1;
-            new_dir->table[0x300].addr_low = 0;
+            // new_dir->table[0x300].flags.present = 1;
+            // new_dir->table[0x300].flags.read_write = 1;
+            // new_dir->table[0x300].flags.pg_size = 1;
+            // new_dir->table[0x300].addr_low = 0;
 
             return new_dir;
         }

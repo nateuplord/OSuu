@@ -87,6 +87,7 @@ bin/inserter: $(INSERTER_SRC)
 USER_FOLDER = userland
 USER_BIN    = $(OUTPUT_FOLDER)/userprog/shell
 USER_C_SRC  := $(wildcard $(USER_FOLDER)/*.c)
+# USER_C_SRC  := $(USER_FOLDER)/user-shell.c # for 4.1 testing
 USER_OBJS   := $(OUTPUT_FOLDER)/userprog/crt0.o \
                $(USER_C_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
 
@@ -111,6 +112,6 @@ insert-shell: $(USER_BIN) inserter
 	@cd $(OUTPUT_FOLDER)/userprog && ../inserter -f shell 1 ../$(DISK_NAME).bin
 
 
-# paging testing
-# debugpaging: clean build
-# 	qemu-system-i386 -s -S -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk,cache=directsync -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+# process debug
+debug: clean build insert-shell
+	@qemu-system-i386 -s -S -drive file=$(OUTPUT_FOLDER)/storage.bin,format=raw,if=ide,index=0,media=disk,cache=directsync -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
