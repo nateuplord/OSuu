@@ -69,6 +69,14 @@ void framebuffer_scroll_up(void) {
     syscall(SYSCALL_TEXT_SCROLL_UP, 0, 0, 0);
 }
 
+void framebuffer_clear(void) {
+    syscall(SYSCALL_TEXT_CLEAR, 0, 0, 0);
+}
+
+void play_bad_apple(uint16_t offset_x, uint16_t offset_y) {
+    syscall(SYSCALL_PLAY_BADAPPLE, offset_x, offset_y, 0);
+}
+
 void get_keyboard_buffer(char *buf) {
     syscall(SYSCALL_KEYBOARD_GETCHAR, (uint32_t) buf, 0, 0);
 }

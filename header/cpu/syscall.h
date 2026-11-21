@@ -36,6 +36,8 @@
 #define SYSCALL_TEXT_WRITE_AT 12
 #define SYSCALL_TEXT_SET_CURSOR 13
 #define SYSCALL_TEXT_SCROLL_UP 14
+#define SYSCALL_PLAY_BADAPPLE 15
+#define SYSCALL_TEXT_CLEAR 16
 
 /**
  * Dispatches a syscall based on the trapped CPU state's eax/ebx/ecx/edx.

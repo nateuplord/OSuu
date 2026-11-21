@@ -35,6 +35,9 @@ void write_blocks(
 void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg);
 void framebuffer_set_cursor(uint8_t r, uint8_t c);
 void framebuffer_scroll_up(void);
+void framebuffer_clear(void);
+
+void play_bad_apple(uint16_t offset_x, uint16_t offset_y);
 
 void get_keyboard_buffer(char *buf);
 void keyboard_state_activate(void);

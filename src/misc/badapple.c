@@ -89,6 +89,8 @@ void play_bad_apple(
     uint16_t offset_x,
     uint16_t offset_y
 ) {
+    __asm__ volatile("sti");
+
     // 1. Load palette.bin once into RAM
     struct EXT2DriverRequest palette_req = {
         .buf = palette_buf,
@@ -174,4 +176,3 @@ void play_bad_apple(
         }
     }
 }
-

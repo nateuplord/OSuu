@@ -23,6 +23,8 @@
 #define SYSCALL_TEXT_WRITE_AT 12
 #define SYSCALL_TEXT_SET_CURSOR 13
 #define SYSCALL_TEXT_SCROLL_UP 14
+#define SYSCALL_PLAY_BADAPPLE 15
+#define SYSCALL_TEXT_CLEAR 16
 
 /**
  * Traps into the kernel via `int 0x30` with the given service number and up

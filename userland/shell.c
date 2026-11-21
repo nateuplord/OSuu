@@ -36,7 +36,8 @@ const char *builtin_cmd[] = {
     "find",
     "echo",
     "pwd",
-    "exit"
+    "exit",
+    "badapple"
 };
 
 int (*builtin_func[]) (char **) = {
@@ -49,7 +50,8 @@ int (*builtin_func[]) (char **) = {
     &shell_find,
     &shell_echo,
     &shell_pwd,
-    &shell_exit
+    &shell_exit,
+    &shell_badapple
 };
 
 int streq(const char str1[], const char str2[]) {
@@ -1303,5 +1305,21 @@ int shell_exit(char **args) {
     }
     (void)args;
     return 0;
+}
+
+int shell_badapple(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf("Usage: badapple\nPlay the Bad Apple animation.\n");
+        return 1;
+    }
+    play_bad_apple(288, 216); // centers the 64x48 video in the 640x480 screen
+
+    // play_bad_apple only touches its own centered 64x48 patch, leaving
+    // whatever shell text was already on screen around it - clear the whole
+    // screen and reset to the top-left so the next prompt starts clean.
+    framebuffer_clear();
+    shell_printf_row = 0;
+    shell_printf_col = 0;
+    return 1;
 }
 
