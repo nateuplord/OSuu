@@ -5,7 +5,7 @@
 
 /**
  * Loads palette.bin and frames.bin from EXT2 root (inode 1) into static .bss
- * buffers and plays the 64x48 animation at 30 FPS using PIT pacing.
+ * buffers and plays the 160x120 animation at 30 FPS using PIT pacing.
  */
 void play_bad_apple(
     uint16_t offset_x,

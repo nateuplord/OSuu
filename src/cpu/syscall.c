@@ -1,6 +1,7 @@
 #include "cpu/syscall.h"
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
+#include "misc/badapple.h"
 #include "text/framebuffer.h"
 #include <stdint.h>
 
@@ -102,6 +103,20 @@ void syscall(struct InterruptFrame frame) {
 
         case SYSCALL_TEXT_SCROLL_UP:
             framebuffer_scroll_up();
+            break;
+
+        case SYSCALL_PLAY_BADAPPLE:
+            // Blocks in ring 0 until playback finishes or is interrupted by
+            // a keypress - already self-contained (its own read()/PIT
+            // pacing/keyboard poll), so no extra syscall surface is needed.
+            play_bad_apple(
+                (uint16_t) frame.cpu.general.ebx,
+                (uint16_t) frame.cpu.general.ecx
+            );
+            break;
+
+        case SYSCALL_TEXT_CLEAR:
+            framebuffer_clear();
             break;
 
         default:
