@@ -21,6 +21,8 @@ static bool history_draft_saved;
 static uint32_t current_directory_inode = 1;
 static uint8_t shell_printf_row = 0;
 static uint8_t shell_printf_col = 0;
+static uint8_t shell_printf_fg = 0x0F;
+static uint8_t shell_printf_bg = 0;
 static uint8_t shell_file_buffer[USER_FILE_BUFFER_SIZE];
 static char shell_arg_storage[SHELL_MAX_ARGS - 1][SHELL_BUFFER_SIZE];
 static char shell_find_path[SHELL_BUFFER_SIZE];
@@ -301,31 +303,122 @@ int8_t resolve_path(uint32_t start_inode, const char *path, uint32_t *resolved_i
     }
 }
 
+static uint8_t shell_printf_attribute(void) {
+    return (uint8_t)((shell_printf_bg << 4) | (shell_printf_fg & 0x0F));
+}
+
+static void shell_printf_write(const char *message, uint32_t length) {
+    if (length == 0) return;
+    framebuffer_puts(message, length, shell_printf_attribute());
+    for (uint32_t i = 0; i < length; i++) {
+        if (message[i] == '\n') {
+            if (shell_printf_row + 1 < FRAMEBUFFER_HEIGHT) {
+                shell_printf_row++;
+            }
+            shell_printf_col = 0;
+        } else {
+            shell_printf_col++;
+            if (shell_printf_col >= FRAMEBUFFER_WIDTH) {
+                shell_printf_col = 0;
+                if (shell_printf_row + 1 < FRAMEBUFFER_HEIGHT) {
+                    shell_printf_row++;
+                }
+            }
+        }
+    }
+}
+
+static uint32_t shell_parse_sgr(
+    const char *message,
+    uint32_t length,
+    uint32_t start
+) {
+    uint16_t parameters[16];
+    uint32_t parameter_count = 0;
+    uint32_t value = 0;
+    bool has_digit = false;
+    uint32_t i = start + 2;
+
+    if (start + 1 >= length || message[start] != '\x1B' ||
+        message[start + 1] != '[') {
+        return 0;
+    }
+
+    for (; i < length; i++) {
+        if (i - start > 64) return 0;
+        char c = message[i];
+        if (c >= '0' && c <= '9') {
+            value = value * 10 + (uint32_t)(c - '0');
+            if (value > 999) return 0;
+            has_digit = true;
+        } else if (c == ';' || c == 'm') {
+            if (parameter_count >= 16) return 0;
+            parameters[parameter_count++] = has_digit ? (uint16_t)value : 0;
+            value = 0;
+            has_digit = false;
+            if (c == 'm') break;
+        } else {
+            return 0;
+        }
+    }
+    if (i >= length || message[i] != 'm') return 0;
+
+    static const uint8_t ansi_to_vga[8] = {0, 4, 2, 6, 1, 5, 3, 7};
+    for (uint32_t p = 0; p < parameter_count; p++) {
+        uint16_t code = parameters[p];
+        if (code == 0) {
+            shell_printf_fg = 0x0F;
+            shell_printf_bg = 0;
+        } else if (code >= 30 && code <= 37) {
+            shell_printf_fg = ansi_to_vga[code - 30];
+        } else if (code >= 90 && code <= 97) {
+            shell_printf_fg = (uint8_t)(ansi_to_vga[code - 90] + 8);
+        } else if (code >= 40 && code <= 47) {
+            shell_printf_bg = ansi_to_vga[code - 40];
+        } else if (code >= 100 && code <= 107) {
+            shell_printf_bg = (uint8_t)(ansi_to_vga[code - 100] + 8);
+        } else if (code == 39) {
+            shell_printf_fg = 0x0F;
+        } else if (code == 49) {
+            shell_printf_bg = 0;
+        }
+    }
+    return i - start + 1;
+}
+
 static void shell_printf_newline(void) {
+    framebuffer_putchar('\n', shell_printf_attribute());
     if (shell_printf_row + 1 < FRAMEBUFFER_HEIGHT) {
         shell_printf_row++;
-    } else {
-        framebuffer_scroll_up();
     }
     shell_printf_col = 0;
 }
 
 static void shell_printf_n(const char *message, uint32_t length) {
-    for (uint32_t i = 0; i < length; i++) {
+    uint32_t i = 0;
+    while (i < length) {
         if (message[i] == '\n') {
             shell_printf_newline();
-        } else {
-            if (shell_printf_col >= FRAMEBUFFER_WIDTH) {
-                shell_printf_newline();
+            i++;
+        }
+        else {
+            uint32_t consumed = 0;
+            if (message[i] == '\x1B' && i + 1 < length &&
+                message[i + 1] == '[') {
+                consumed = shell_parse_sgr(message, length, i);
             }
-            framebuffer_write(
-                shell_printf_row,
-                shell_printf_col,
-                message[i],
-                0xF,
-                0
-            );
-            shell_printf_col++;
+            if (consumed != 0) {
+                i += consumed;
+            }
+            else {
+                uint32_t text_start = i;
+                while (i < length && message[i] != '\n' &&
+                    message[i] != '\x1B') {
+                    i++;
+                }
+                if (i == text_start) i++;
+                shell_printf_write(message + text_start, i - text_start);
+            }
         }
     }
 }
@@ -912,6 +1005,8 @@ void start_shell() {
     history_draft_saved = false;
     shell_printf_row = 0;
     shell_printf_col = 0;
+    shell_printf_fg = 0x0F;
+    shell_printf_bg = 0;
     shell_history.buffer[0].length = 0;
     shell_history.buffer[0].buffer[0] = '\0';
     shell_print_prompt();

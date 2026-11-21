@@ -271,7 +271,13 @@ void putchar(char c, uint8_t color) {
         puts_row++;
         puts_col = 0;
     } else {
-        framebuffer_write(puts_row, puts_col, c, color, 0);
+        framebuffer_write(
+            puts_row,
+            puts_col,
+            c,
+            color & 0x0F,
+            (color >> 4) & 0x0F
+        );
         ++puts_col;
         if (puts_col >= FRAMEBUFFER_WIDTH) {
             puts_row++;

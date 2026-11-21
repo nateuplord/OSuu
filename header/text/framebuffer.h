@@ -122,7 +122,7 @@ void framebuffer_scroll_up(void);
  * Character to write
  *
  * @param color
- * Foreground color (background is always black)
+ * BIOS color attribute: low nibble is foreground, high nibble is background.
  */
 void putchar(char c, uint8_t color);
 
@@ -138,7 +138,7 @@ void putchar(char c, uint8_t color);
  * Number of characters to write
  *
  * @param color
- * Foreground color (background is always black)
+ * BIOS color attribute: low nibble is foreground, high nibble is background.
  */
 void puts(const char *buf, uint32_t count, uint8_t color);
 
