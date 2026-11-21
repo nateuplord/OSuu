@@ -14,7 +14,10 @@
 #include <stdint.h>
 
 #define USER_PROGRAM_VIRTUAL_ADDR ((uint8_t *) 0)
+#define USER_PROGRAM_MAX_PAGES                                                 \
+    256 // 1 MiB, matching linker.ld's program size cap
 #define USER_STACK_PAGE_VIRTUAL_ADDR ((uint8_t *) 0x3FF000)
+#define USER_STACK_PAGES 16 // 64 KiB, growing down from 0x400000
 
 /** Report a setup failure on the framebuffer instead of jumping into garbage. */
 static void halt_with_error(int8_t code) {
@@ -24,6 +27,21 @@ static void halt_with_error(int8_t code) {
     while (true) {
         __asm__ volatile("hlt");
     }
+}
+
+static bool make_user_accessible(
+    uint8_t *start_addr,
+    uint32_t page_count
+) {
+    struct PgTableEntryFlags cleared_flags = {0};
+    for (uint32_t i = 0; i < page_count; i++) {
+        uint8_t *addr = start_addr + i * 0x1000;
+        pg_update_entry(&_pg_kernel_pg_dir, 0, addr, cleared_flags);
+        if (!pg_alloc_user_frame(&_pg_kernel_pg_dir, addr)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void kernel_setup(struct Multiboot2Info *mb_info) {
@@ -54,24 +72,12 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     framebuffer_set_cursor(0, 0);
     keyboard_state_activate();
 
-    // USER_PROGRAM_VIRTUAL_ADDR/USER_STACK_PAGE_VIRTUAL_ADDR both fall inside
-    // the kernel's own statically identity-mapped low region (needed by the
-    // VBE real-mode trampoline, but only for addresses around 0x7000-0x9000 -
-    // nowhere near these two). pg_alloc_user_frame refuses to allocate over
-    // an already-present PTE, so clear just these two entries first, now
-    // that vbe_set_mode()'s real-mode work is done and doesn't need them.
-    struct PgTableEntryFlags cleared_flags = {0};
-    pg_update_entry(
-        &_pg_kernel_pg_dir, 0, USER_PROGRAM_VIRTUAL_ADDR, cleared_flags
-    );
-    pg_update_entry(
-        &_pg_kernel_pg_dir, 0, USER_STACK_PAGE_VIRTUAL_ADDR, cleared_flags
-    );
-
-    // Code page and stack page must both be reachable from ring 3.
-    if (!pg_alloc_user_frame(&_pg_kernel_pg_dir, USER_PROGRAM_VIRTUAL_ADDR) ||
-        !pg_alloc_user_frame(
-            &_pg_kernel_pg_dir, USER_STACK_PAGE_VIRTUAL_ADDR
+    if (!make_user_accessible(
+            USER_PROGRAM_VIRTUAL_ADDR, USER_PROGRAM_MAX_PAGES
+        ) ||
+        !make_user_accessible(
+            USER_STACK_PAGE_VIRTUAL_ADDR - (USER_STACK_PAGES - 1) * 0x1000,
+            USER_STACK_PAGES
         )) {
         halt_with_error(-1);
     }

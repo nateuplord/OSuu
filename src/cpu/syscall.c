@@ -52,6 +52,58 @@ void syscall(struct InterruptFrame frame) {
             keyboard_state_activate();
             break;
 
+        case SYSCALL_FS_GET_NODE:
+            get_node(
+                (struct EXT2Inode *) frame.cpu.general.ebx,
+                frame.cpu.general.ecx
+            );
+            break;
+
+        case SYSCALL_FS_SYNC_NODE:
+            sync_node(
+                (struct EXT2Inode *) frame.cpu.general.ebx,
+                frame.cpu.general.ecx
+            );
+            break;
+
+        case SYSCALL_FS_READ_BLOCKS:
+            read_blocks(
+                (void *) frame.cpu.general.ebx,
+                frame.cpu.general.ecx,
+                (uint8_t) frame.cpu.general.edx
+            );
+            break;
+
+        case SYSCALL_FS_WRITE_BLOCKS:
+            write_blocks(
+                (const void *) frame.cpu.general.ebx,
+                frame.cpu.general.ecx,
+                (uint8_t) frame.cpu.general.edx
+            );
+            break;
+
+        case SYSCALL_TEXT_WRITE_AT:
+            // Every real call site uses white-on-black, so that's hardcoded
+            // here rather than spending a 4th register on fg/bg.
+            framebuffer_write(
+                (uint8_t) frame.cpu.general.ebx,
+                (uint8_t) frame.cpu.general.ecx,
+                (char) frame.cpu.general.edx,
+                0xF,
+                0
+            );
+            break;
+
+        case SYSCALL_TEXT_SET_CURSOR:
+            framebuffer_set_cursor(
+                (uint8_t) frame.cpu.general.ebx, (uint8_t) frame.cpu.general.ecx
+            );
+            break;
+
+        case SYSCALL_TEXT_SCROLL_UP:
+            framebuffer_scroll_up();
+            break;
+
         default:
             break;
     }

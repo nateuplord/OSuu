@@ -1,16 +1,62 @@
-#include "syscall.h"
+#include "kernel_api.h"
+#include "shell.h"
+#include <stdbool.h>
 #include <stdint.h>
 
-static const char message[] = "osu!mania";
+static uint8_t row = 0;
+static uint8_t col = 0;
+
+static void new_line(void) {
+    ++row;
+    col = 0;
+}
 
 int main(void) {
-    /* Visible marker: "osu!mania" via the real syscall path (puts -> the
-     * VBE graphics framebuffer), proving int 0x30 actually works from ring 3
-     * instead of poking the legacy VGA text buffer directly. */
-    syscall(SYSCALL_TEXT_PUTS, (uint32_t) message, sizeof(message) - 1, 0xF);
+    keyboard_state_activate();
+    start_shell();
+    shell_get_cursor_position(&row, &col);
 
-    __asm__ volatile("mov %0, %%eax"
-                     : /* <Empty> */
-                     : "r"(0xDEADBEEF));
+    while (true) {
+        char c;
+        get_keyboard_buffer(&c);
+        if (!c) {
+            continue;
+        }
+
+        switch (c) {
+            case '\n':
+                new_line();
+                enter_command();
+                shell_get_cursor_position(&row, &col);
+                break;
+            case '\b':
+                remove_char();
+                shell_get_cursor_position(&row, &col);
+                break;
+            case KEYBOARD_KEY_LEFT:
+                shell_cursor_left(&row, &col);
+                break;
+            case KEYBOARD_KEY_RIGHT:
+                shell_cursor_right(&row, &col);
+                break;
+            case KEYBOARD_KEY_UP:
+                shell_history_up(&row, &col);
+                break;
+            case KEYBOARD_KEY_DOWN:
+                shell_history_down(&row, &col);
+                break;
+            default:
+                framebuffer_write(row, col, c, 0xF, 0);
+                ++col;
+
+                if (col >= FRAMEBUFFER_WIDTH) {
+                    new_line();
+                }
+                add_char(c);
+                break;
+        }
+        framebuffer_set_cursor(row, col);
+    }
+
     return 0;
 }

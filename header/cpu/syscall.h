@@ -24,6 +24,20 @@
 #define SYSCALL_KEYBOARD_ACTIVATE 7
 
 /**
+ * Beyond this point, these are our own additions on top of the official
+ * table above - needed because the real shell (ported into userland/)
+ * reaches directly into ext2/framebuffer internals rather than just the
+ * four high-level FS calls, same as it already did in ring 0.
+ */
+#define SYSCALL_FS_GET_NODE 8
+#define SYSCALL_FS_SYNC_NODE 9
+#define SYSCALL_FS_READ_BLOCKS 10
+#define SYSCALL_FS_WRITE_BLOCKS 11
+#define SYSCALL_TEXT_WRITE_AT 12
+#define SYSCALL_TEXT_SET_CURSOR 13
+#define SYSCALL_TEXT_SCROLL_UP 14
+
+/**
  * Dispatches a syscall based on the trapped CPU state's eax/ebx/ecx/edx.
  * Called from main_interrupt_handler() for SYSCALL_INTERRUPT_VECTOR - not
  * meant to be called directly.

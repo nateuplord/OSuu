@@ -16,6 +16,14 @@
 #define SYSCALL_TEXT_PUTS 6
 #define SYSCALL_KEYBOARD_ACTIVATE 7
 
+#define SYSCALL_FS_GET_NODE 8
+#define SYSCALL_FS_SYNC_NODE 9
+#define SYSCALL_FS_READ_BLOCKS 10
+#define SYSCALL_FS_WRITE_BLOCKS 11
+#define SYSCALL_TEXT_WRITE_AT 12
+#define SYSCALL_TEXT_SET_CURSOR 13
+#define SYSCALL_TEXT_SCROLL_UP 14
+
 /**
  * Traps into the kernel via `int 0x30` with the given service number and up
  * to three register-passed arguments (cast to uint32_t as needed - pointers,
