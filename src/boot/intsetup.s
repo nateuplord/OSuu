@@ -59,7 +59,7 @@ segment_register_setup:
     pop es
     pop ds
 
-    ; Restore the esp (interrupt number & error code)
+    ; Restore esp (interrupt number & error code)
     add esp, 8
 
     ; Return to the code that got interrupted
@@ -160,3 +160,4 @@ isr_stub_table:
     dd interrupt_handler_%+i
     %assign i i+1 
     %endrep
+

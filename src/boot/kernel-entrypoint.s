@@ -161,24 +161,19 @@ set_tss_register:
     ret
 
 kernel_execute_user_program:
-    mov  eax, 0x20 | 0x3
-    mov  ds, ax
-    mov  es, ax
-    mov  fs, ax
-    mov  gs, ax
+    mov eax, [esp + 4]      ; entrypoint (0x0)
+    mov bx,  0x20 | 0x3     ; user data selector (0x23)
+    mov ds,  bx
+    mov es,  bx
+    mov fs,  bx
+    mov gs,  bx
 
-    ; Using iret (return instruction for interrupt) technique for privilege change
-    ; Stack values will be loaded into these register:
-    ; [esp] -> eip, [esp+4] -> cs, [esp+8] -> eflags, [] -> user esp, [] -> user ss
-    mov  ecx, [esp+4] ; Save first (before pushing anything to stack) for last push
-    push eax ; Stack segment selector (GDT_USER_DATA_SELECTOR), user privilege
-    mov  eax, ecx
-    add  eax, 0x400000 - 4
-    push eax ; User space stack pointer (esp), move it into last 4 MiB
-    pushf    ; eflags register state, when jump inside user program
-    mov  eax, 0x18 | 0x3
-    push eax ; Code segment selector (GDT_USER_CODE_SELECTOR), user privilege
-    mov  eax, ecx
-    push eax ; eip register to jump back
-
+    push 0x20 | 0x3          ; SS
+    push 0xBFFFFFFC          ; ESP (top of mapped 0xBFFFF000 stack page)
+    pushf
+    pop  ebx
+    or   ebx, 0x200          ; Ensure IF (Interrupt Enable) is set
+    push ebx                 ; EFLAGS
+    push 0x18 | 0x3          ; CS (User Code selector 0x1B)[cite: 205]
+    push eax                 ; EIP (0x0)
     iret

@@ -1,10 +1,88 @@
 #include "memory/paging.h"
+#include "process/process.h"
 #include "stdlib/string.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #define KERNEL_VIRT_BASE 0xC0000000u
+
+__attribute__((aligned(0x1000))) static struct PgDir
+    page_directory_list[PAGING_DIRECTORY_TABLE_MAX_COUNT] = {0};
+
+static struct {
+    bool page_directory_used[PAGING_DIRECTORY_TABLE_MAX_COUNT];
+} page_directory_manager = {
+    .page_directory_used = {false},
+};
+
+struct PgDir *paging_create_new_page_directory(void) {
+    for (uint32_t i = 0; i < PAGING_DIRECTORY_TABLE_MAX_COUNT; i++) {
+        if (!page_directory_manager.page_directory_used[i]) {
+            // Mark as used
+            page_directory_manager.page_directory_used[i] = true;
+            struct PgDir *new_dir = &page_directory_list[i];
+
+            // Clear the table of the new dir to rid of any garbage values
+            for (uint32_t j = 0; j < 1024; j++) {
+                memset(new_dir->table, 0, sizeof(new_dir->table));
+            }
+            /*
+                > present bit    true
+                > write bit      true
+                > pagesize 4 mb  true
+                > lower address  0
+            */
+
+            new_dir->table[0x300].flags.present = 1;
+            new_dir->table[0x300].flags.read_write = 1;
+            new_dir->table[0x300].flags.pg_size = 1;
+            new_dir->table[0x300].addr_low = 0;
+
+            return new_dir;
+        }
+    }
+    return NULL;
+}
+
+bool paging_free_page_directory(struct PgDir *page_dir) {
+    for (uint32_t i = 0; i < PAGING_DIRECTORY_TABLE_MAX_COUNT; i++) {
+        if (&page_directory_list[i] == page_dir) {
+            // Mark as unused
+            page_directory_manager.page_directory_used[i] = false;
+
+            // Clear all page directory
+            memset(
+                page_directory_list[i].table, 0,
+                sizeof(page_directory_list[i].table)
+            );
+
+            return true;
+        }
+    }
+    return false;
+}
+
+struct PgDir *paging_get_current_page_directory_addr(void) {
+    uint32_t current_page_directory_phys_addr;
+    __asm__ volatile("mov %%cr3, %0"
+                     : "=r"(current_page_directory_phys_addr)
+                     : /* <Empty> */);
+    uint32_t virtual_addr_page_dir =
+        current_page_directory_phys_addr + KERNEL_VIRTUAL_ADDRESS_BASE;
+    return (struct PgDir *) virtual_addr_page_dir;
+}
+
+void paging_use_page_directory(struct PgDir *page_dir_virtual_addr) {
+    uint32_t physical_addr_page_dir = (uint32_t) page_dir_virtual_addr;
+    // Additional layer of check & mistake safety net
+    if ((uint32_t) page_dir_virtual_addr > KERNEL_VIRTUAL_ADDRESS_BASE)
+        physical_addr_page_dir -= KERNEL_VIRTUAL_ADDRESS_BASE;
+    __asm__ volatile("mov %0, %%cr3"
+                     : /* <Empty> */
+                     : "r"(physical_addr_page_dir)
+                     : "memory");
+}
 
 /**
  * _pg_kernel_pg_dir and _pg_kernel_pg_table is initialized on kernel-entrypoint.s

@@ -10,6 +10,7 @@
 #include "memory/paging.h"
 #include "memory/swap.h"
 #include "text/framebuffer.h"
+#include "process/process.h"
 #include <stdbool.h>
 #include <stdint.h>
 
