@@ -30,6 +30,7 @@ static void halt_with_error(int8_t code) {
     }
 }
 
+#if 0
 static bool make_user_accessible(
     uint8_t *start_addr,
     uint32_t page_count
@@ -44,6 +45,7 @@ static bool make_user_accessible(
     }
     return true;
 }
+#endif
 
 void kernel_setup(struct Multiboot2Info *mb_info) {
     load_gdt(&gdtr);
@@ -78,7 +80,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
         .buf = (uint8_t *) 0x0,
         .name = "shell",
         .parent_inode = 1,
-        .buffer_size = 4 * FRAME_SIZE, // use 0x100000 once PROCESS_PAGE_FRAME_COUNT_MAX >= 257
+        .buffer_size = 4 * FRAME_SIZE, // use 0x100000 once PROCESS_PAGE_FRAME_COUNT_MAX >= 257, especially for chapter 4.3
         .name_len = 5,
         .is_directory = false,
     };

@@ -3,6 +3,10 @@
 #include "memory/paging.h"
 #include "stdlib/string.h"
 
+static uint32_t ceil_div(uint32_t a, uint32_t b) {
+    return (a / b) + (a % b != 0);
+}
+
 struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX] = {0};
 struct ProcessManagerState process_manager_state = {
     .is_process_active = {false},
@@ -49,7 +53,7 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     // Check whether memory is enough for the executable and additional frame for user stack
     uint32_t page_frame_count_needed =
         ceil_div(request.buffer_size + FRAME_SIZE, FRAME_SIZE);
-    if (!paging_allocate_check(page_frame_count_needed) ||
+    if (!pg_check_alloc(page_frame_count_needed) ||
         page_frame_count_needed > PROCESS_PAGE_FRAME_COUNT_MAX) {
         retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
         goto exit_cleanup;
