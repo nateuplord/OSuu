@@ -62,6 +62,7 @@ int shell_cd(char **args);
 int shell_ls(char **args);
 int shell_mkdir(char **args);
 int shell_cat(char **args);
+int shell_grep(char **args);
 int shell_cp(char **args);
 int shell_mv(char **args);
 int shell_rm(char **args);

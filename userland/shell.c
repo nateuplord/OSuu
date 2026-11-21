@@ -33,6 +33,7 @@ const char *builtin_cmd[] = {
     "ls",
     "mkdir",
     "cat",
+    "grep",
     "cp",
     "mv",
     "rm",
@@ -47,6 +48,7 @@ int (*builtin_func[]) (char **) = {
     &shell_ls,
     &shell_mkdir,
     &shell_cat,
+    &shell_grep,
     &shell_cp,
     &shell_mv,
     &shell_rm,
@@ -1206,6 +1208,84 @@ int shell_cat(char **args) {
         return 1;
     }
     shell_printf_n((const char *)shell_file_buffer, file.size);
+    return 1;
+}
+
+int shell_grep(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf("grep: grep [PATTERN] [FILE]...\nSearch files for matching lines.\n");
+        return 1;
+    }
+    if (args == NULL || args[1] == NULL) {
+        shell_printf("grep: missing pattern\n");
+        return 1;
+    }
+    const char *pattern = args[1];
+    if (args[2] == NULL) {
+        shell_printf("grep: missing file operand\n");
+        return 1;
+    }
+
+    int first_file_index = 2;
+    int file_count = 0;
+    while (args[first_file_index + file_count] != NULL) file_count++;
+
+    for (int file_index = 0; file_index < file_count; file_index++) {
+        const char *path = args[first_file_index + file_index];
+        struct ShellFilePath file;
+        int result = resolve_shell_file(path, &file);
+        if (result != 0) {
+            print_path_error("grep: ", path, result);
+            continue;
+        }
+        if (file.is_directory) {
+            shell_print_error("grep: ", path, ": Is a directory");
+            shell_printf("\n");
+            continue;
+        }
+        result = read_shell_file(&file);
+        if (result != 0) {
+            print_read_error("grep: ", path, result);
+            continue;
+        }
+
+        uint32_t pattern_length = (uint32_t)str_len(pattern);
+        uint32_t line_start = 0;
+        while (line_start < file.size) {
+            uint32_t line_end = line_start;
+            while (line_end < file.size && shell_file_buffer[line_end] != '\n') {
+                line_end++;
+            }
+            uint32_t line_length = line_end - line_start;
+
+            bool matched = pattern_length == 0;
+            for (uint32_t start = 0;
+                 !matched && start + pattern_length <= line_length;
+                 start++) {
+                if (memcmp(
+                        shell_file_buffer + line_start + start,
+                        pattern,
+                        pattern_length
+                    ) == 0) {
+                    matched = true;
+                }
+            }
+            if (matched) {
+                if (file_count > 1) {
+                    shell_printf(path);
+                    shell_printf(":");
+                }
+                shell_printf_n(
+                    (const char *)shell_file_buffer + line_start,
+                    line_length
+                );
+                shell_printf("\n");
+            }
+
+            if (line_end == file.size) break;
+            line_start = line_end + 1;
+        }
+    }
     return 1;
 }
 
