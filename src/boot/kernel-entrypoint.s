@@ -1,6 +1,7 @@
 global loader                           ; the entry symbol for ELF
 global load_gdt                         ; load GDT table
 global set_tss_register                 ; set tss register to GDT entry
+global kernel_execute_user_program      ; execute user program
 extern kernel_setup                     ; kernel C entrypoint
 extern _pg_kernel_pg_dir                ; kernel page directory
 extern _pg_kernel_pg_table              ; kernel page table
@@ -125,3 +126,21 @@ set_tss_register:
     mov ax, 0x28 | 0 ; GDT TSS Selector, ring 0
     ltr ax
     ret
+
+kernel_execute_user_program:
+    mov eax, [esp + 4]      ; entrypoint (0x0)
+    mov bx,  0x20 | 0x3     ; user data selector (0x23)
+    mov ds,  bx
+    mov es,  bx
+    mov fs,  bx
+    mov gs,  bx
+
+    push 0x20 | 0x3          ; SS
+    push 0xBFFFFFFC          ; ESP (top of mapped 0xBFFFF000 stack page)
+    pushf
+    pop  ebx
+    or   ebx, 0x200          ; Ensure IF (Interrupt Enable) is set
+    push ebx                 ; EFLAGS
+    push 0x18 | 0x3          ; CS (User Code selector 0x1B)[cite: 205]
+    push eax                 ; EIP (0x0)
+    iret
