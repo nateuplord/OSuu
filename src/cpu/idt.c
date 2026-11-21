@@ -1,5 +1,6 @@
 #include "cpu/idt.h"
 #include "cpu/gdt.h"
+#include "cpu/syscall.h"
 #include <stdint.h>
 
 struct InterruptDescriptorTable idt = {.table = {}};
@@ -15,6 +16,14 @@ void initialize_idt(void) {
             i, isr_stub_table[i], GDT_KERNEL_CODE_SEGMENT_SELECTOR, 0
         );
     }
+
+    // Syscalls are the one vector ring-3 code is allowed to trigger directly
+    // via `int` - every other gate above stays kernel-only (DPL=0).
+    set_interrupt_gate(
+        SYSCALL_INTERRUPT_VECTOR, isr_stub_table[SYSCALL_INTERRUPT_VECTOR],
+        GDT_KERNEL_CODE_SEGMENT_SELECTOR, 3
+    );
+
     __asm__ volatile("lidt %0"
                      : // Ignored branch
                      : "m"(idtr));

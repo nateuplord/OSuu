@@ -113,4 +113,33 @@ void framebuffer_clear(void);
  */
 void framebuffer_scroll_up(void);
 
+/**
+ * Write a single character at the current cursor position and advance it,
+ * wrapping to a new line and scrolling as needed. Backing implementation for
+ * the `putchar` syscall (service 5).
+ *
+ * @param c
+ * Character to write
+ *
+ * @param color
+ * Foreground color (background is always black)
+ */
+void putchar(char c, uint8_t color);
+
+/**
+ * Write `count` characters starting at the current cursor position, same
+ * wrapping/scrolling rules as putchar. Backing implementation for the `puts`
+ * syscall (service 6).
+ *
+ * @param buf
+ * Character buffer to write (not null-terminated; exactly `count` bytes read)
+ *
+ * @param count
+ * Number of characters to write
+ *
+ * @param color
+ * Foreground color (background is always black)
+ */
+void puts(const char *buf, uint32_t count, uint8_t color);
+
 #endif

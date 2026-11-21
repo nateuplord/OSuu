@@ -63,13 +63,23 @@ loader_entrypoint:
     ; high-half mirror (dir[N] / dir[0xC00+N]) at the Nth page table.
     ; esi (not ebx!) is the scratch here - ebx still holds the multiboot2
     ; info pointer GRUB passed in, needed later by loader_virtual.
+    ;
+    ; user_supervisor=1 here (0x7, not 0x3) despite this being the KERNEL's
+    ; own identity map: x86 ANDs the U/S bit from the PDE and PTE together,
+    ; so leaving it 0 here would block ring-3 access to EVERY page under
+    ; these directory entries regardless of what pg_alloc_user_frame sets at
+    ; the per-page level - including user programs later loaded at low
+    ; virtual addresses like 0. The individual pages stay supervisor-only by
+    ; default anyway, since .fill_kernel_page_table above only sets 0x3 (no
+    ; user_supervisor) per PTE; this only stops the directory from
+    ; overriding that per-page decision.
     mov esi, _pg_kernel_pg_table - KERNEL_VIRT_BASE
     mov edi, _pg_kernel_pg_dir - KERNEL_VIRT_BASE
     mov ecx, KERNEL_RESERVED_PAGE_TABLE_COUNT
 
 .fill_kernel_page_dir:
     mov eax, esi
-    or  eax, 0x3
+    or  eax, 0x7
     mov [edi], eax
     mov [edi + 0xC00], eax
 

@@ -1,6 +1,7 @@
 #include "cpu/interrupt.h"
 #include "boot/kernel-entrypoint.h"
 #include "cpu/portio.h"
+#include "cpu/syscall.h"
 #include "driver/keyboard.h"
 #include "driver/pit.h"
 #include "memory/swap.h"
@@ -75,6 +76,9 @@ void main_interrupt_handler(struct InterruptFrame frame) {
             break;
         case 14:
             handle_page_fault(frame.int_stack.error_code);
+            break;
+        case SYSCALL_INTERRUPT_VECTOR:
+            syscall(frame);
             break;
         default:
             break;
