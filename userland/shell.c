@@ -25,6 +25,8 @@ static uint8_t shell_file_buffer[USER_FILE_BUFFER_SIZE];
 static char shell_arg_storage[SHELL_MAX_ARGS - 1][SHELL_BUFFER_SIZE];
 static char shell_find_path[SHELL_BUFFER_SIZE];
 static struct BlockBuffer shell_find_directory_buffer;
+static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
+static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
 const char *builtin_cmd[] = {
     "cd",
@@ -33,6 +35,7 @@ const char *builtin_cmd[] = {
     "cat",
     "cp",
     "mv",
+    "rm",
     "find",
     "echo",
     "pwd",
@@ -46,6 +49,7 @@ int (*builtin_func[]) (char **) = {
     &shell_cat,
     &shell_cp,
     &shell_mv,
+    &shell_rm,
     &shell_find,
     &shell_echo,
     &shell_pwd,
@@ -704,6 +708,166 @@ static int resolve_copy_destination(
     if (found < 0) return -1;
     *already_exists = found == 1;
     return 0;
+}
+
+static void print_path_error(const char *command, const char *path, int result);
+
+static int shell_rm_entry(
+    uint32_t parent_inode,
+    const char *name,
+    uint32_t depth
+) {
+    if (depth >= SHELL_PATH_DEPTH_MAX) return -1;
+
+    uint32_t target_inode;
+    bool is_directory;
+    int found = find_entry(parent_inode, name, &target_inode, &is_directory);
+    if (found == 0) return 1;
+    if (found != 1) return -1;
+    if (is_directory &&
+        (target_inode == 1 || target_inode == current_directory_inode)) {
+        return -1;
+    }
+
+    if (is_directory) {
+        struct EXT2Inode directory;
+        get_node(&directory, target_inode);
+        if ((directory.i_mode & EXT2_S_IFDIR) == 0) return -1;
+
+        while (true) {
+            read_blocks(
+                &shell_rm_directory_buffers[depth], directory.i_block[0], 1
+            );
+            uint32_t offset = get_dir_first_child_offset(
+                shell_rm_directory_buffers[depth].buf
+            );
+            bool has_child = false;
+            while (offset < BLOCK_SIZE) {
+                struct EXT2DirectoryEntry *entry = get_directory_entry(
+                    shell_rm_directory_buffers[depth].buf, offset
+                );
+                if (entry->inode == 0) break;
+                if (entry->rec_len == 0 ||
+                    entry->rec_len > BLOCK_SIZE - offset ||
+                    sizeof(*entry) + entry->name_len > entry->rec_len ||
+                    entry->name_len > UINT8_MAX) {
+                    return -1;
+                }
+                char *child_name = shell_rm_child_names[depth];
+                strcopy_len(get_entry_name(entry), child_name, entry->name_len);
+                offset += entry->rec_len;
+                if (streq(child_name, ".") || streq(child_name, "..")) {
+                    continue;
+                }
+                if (depth + 1 >= SHELL_PATH_DEPTH_MAX ||
+                    shell_rm_entry(target_inode, child_name, depth + 1) != 0) {
+                    return -1;
+                }
+                has_child = true;
+                break;
+            }
+            if (!has_child) break;
+        }
+    }
+
+    struct EXT2DriverRequest request = {
+        .buf = NULL,
+        .name = (char *)name,
+        .name_len = (uint8_t)str_len(name),
+        .parent_inode = parent_inode,
+        .buffer_size = 0,
+        .is_directory = is_directory
+    };
+    return delete(request);
+}
+
+int shell_rm(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf("rm: rm [OPTION] PATH\nRemove a file or directory.\n");
+        return 1;
+    }
+    bool force_recursive = false;
+    char *path;
+    if (args == NULL || args[1] == NULL) {
+        shell_printf("rm: missing operand\n");
+        return 1;
+    }
+    if (streq(args[1], "-rf")) {
+        force_recursive = true;
+    }
+    if (force_recursive) {
+        if (args[2] == NULL) return 1;
+        path = args[2];
+    } else {
+        path = args[1];
+    }
+    if (path == NULL) {
+        shell_printf("rm: missing operand\n");
+        return 1;
+    }
+
+    uint32_t parent_inode;
+    char name[UINT8_MAX + 1];
+    int result = resolve_parent_and_name(path, &parent_inode, name);
+    if (result != 0) {
+        if (force_recursive && result == 2) return 1;
+        print_path_error("rm: ", path, result);
+        return 1;
+    }
+    if (streq(name, ".") || streq(name, "..") ||
+        !shell_directory_entries_valid(parent_inode)) {
+        shell_print_error("rm: cannot remove '", path, "': Invalid path");
+        shell_printf("\n");
+        return 1;
+    }
+
+    uint32_t target_inode;
+    bool is_directory;
+    int found = find_entry(parent_inode, name, &target_inode, &is_directory);
+    if (found == 0) {
+        shell_print_error("rm: cannot remove '", path, "': No such file or directory");
+        shell_printf("\n");
+        return 1;
+    }
+    if (found < 0) {
+        shell_print_error("rm: cannot remove '", path, "': Unable to access directory");
+        shell_printf("\n");
+        return 1;
+    }
+    if (is_directory && !force_recursive) {
+        shell_print_error("rm: cannot remove '", path, "': Is a directory");
+        shell_printf("\n");
+        return 1;
+    }
+    if (is_directory && (target_inode == 1 || target_inode == current_directory_inode)) {
+        shell_print_error("rm: cannot remove '", path, "': Operation not permitted");
+        shell_printf("\n");
+        return 1;
+    }
+
+    if (force_recursive) {
+        result = shell_rm_entry(parent_inode, name, 0);
+    }
+    else {
+        struct EXT2DriverRequest request = {
+            .buf = NULL,
+            .name = name,
+            .name_len = (uint8_t)str_len(name),
+            .parent_inode = parent_inode,
+            .buffer_size = 0,
+            .is_directory = is_directory
+        };
+        result = delete(request);
+    }
+    if (result == 3) {
+        shell_print_error("rm: cannot remove '", path, "': Not a directory");
+    } else if (result != 0) {
+        shell_print_error("rm: cannot remove '", path, "': Unable to remove");
+    } else {
+        return 1;
+    }
+    shell_printf("\n");
+    return 1;
 }
 
 static void print_path_error(const char *command, const char *path, int result) {
