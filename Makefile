@@ -38,7 +38,7 @@ test-sample: clean build
 clean:
 # @rm -rf $(OUTPUT_FOLDER)/*
 	@rm -rf *.o *.iso $(OUTPUT_FOLDER)/cpu/ $(OUTPUT_FOLDER)/driver/ $(OUTPUT_FOLDER)/stdlib/ $(OUTPUT_FOLDER)/text/ $(OUTPUT_FOLDER)/inserter \
-		$(OUTPUT_FOLDER)/crt0.o $(OUTPUT_FOLDER)/user-shell.o $(OUTPUT_FOLDER)/userprog/
+		$(OUTPUT_FOLDER)/userprog/
 
 build: iso
 
@@ -86,13 +86,21 @@ bin/inserter: $(INSERTER_SRC)
 # User program: flat binary linked at 0x0, inserted as a file in the ext2 image
 USER_FOLDER = userland
 USER_BIN    = $(OUTPUT_FOLDER)/userprog/shell
+USER_C_SRC  := $(wildcard $(USER_FOLDER)/*.c)
+USER_OBJS   := $(OUTPUT_FOLDER)/userprog/crt0.o \
+               $(USER_C_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
 
-$(USER_BIN): $(USER_FOLDER)/crt0.s $(USER_FOLDER)/user-shell.c $(USER_FOLDER)/linker.ld
+$(OUTPUT_FOLDER)/userprog/%.o: $(USER_FOLDER)/%.c
 	@mkdir -p $(dir $@)
-	@$(ASM) $(ASM_FLAGS) $(USER_FOLDER)/crt0.s -o $(OUTPUT_FOLDER)/crt0.o
-	@$(CC) $(C_FLAGS) -fno-pie $(USER_FOLDER)/user-shell.c -o $(OUTPUT_FOLDER)/user-shell.o
+	@$(CC) $(C_FLAGS) -fno-pie $< -o $@
+
+$(OUTPUT_FOLDER)/userprog/crt0.o: $(USER_FOLDER)/crt0.s
+	@mkdir -p $(dir $@)
+	@$(ASM) $(ASM_FLAGS) $< -o $@
+
+$(USER_BIN): $(USER_OBJS) $(USER_FOLDER)/linker.ld
 	@$(LINK) -T $(USER_FOLDER)/linker.ld -melf_i386 --oformat=binary \
-		$(OUTPUT_FOLDER)/crt0.o $(OUTPUT_FOLDER)/user-shell.o -o $@
+		$(USER_OBJS) -o $@
 	@echo Linking user object files and generating flat binary...
 	@size --target=binary $@
 

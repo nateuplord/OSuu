@@ -259,3 +259,36 @@ void framebuffer_clear(void) {
         }
     }
 }
+
+// Cursor state for putchar/puts - kept separate from the (now mostly legacy,
+// ring-0 shell's) shell_printf_row/col in shell.c, since these back the
+// syscalls a ring-3 shell uses instead.
+static uint8_t puts_row = 0;
+static uint8_t puts_col = 0;
+
+void putchar(char c, uint8_t color) {
+    if (c == '\n') {
+        puts_row++;
+        puts_col = 0;
+    } else {
+        framebuffer_write(puts_row, puts_col, c, color, 0);
+        ++puts_col;
+        if (puts_col >= FRAMEBUFFER_WIDTH) {
+            puts_row++;
+            puts_col = 0;
+        }
+    }
+
+    if (puts_row >= FRAMEBUFFER_HEIGHT) {
+        framebuffer_scroll_up();
+        puts_row = FRAMEBUFFER_HEIGHT - 1;
+    }
+
+    framebuffer_set_cursor(puts_row, puts_col);
+}
+
+void puts(const char *buf, uint32_t count, uint8_t color) {
+    for (uint32_t i = 0; i < count; i++) {
+        putchar(buf[i], color);
+    }
+}
