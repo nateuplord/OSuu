@@ -7,10 +7,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define GRID_COLS 8
-#define GRID_ROWS 6
-#define TILES_PER_FRAME (GRID_COLS * GRID_ROWS) // 48 tiles
-#define BYTES_PER_FRAME (TILES_PER_FRAME * 2)   // 96 bytes
+#define GRID_COLS 20
+#define GRID_ROWS 15
+#define TILES_PER_FRAME (GRID_COLS * GRID_ROWS) // 300 tiles
 
 #define VIDEO_FPS 30
 #define PIT_HZ 100
@@ -19,16 +18,30 @@
 #define COLOR_BLACK 0x00
 #define COLOR_WHITE 0x0F
 
-// Palette stays in RAM (~355 KB), frames stream through a 32 KB window
-#define PALETTE_BUF_SIZE (384 * 1024)
-#define CHUNK_FRAMES 340
-// 32,640 bytes of real data, rounded up to the next 512-byte block boundary -
-// read() copies in whole BLOCK_SIZE chunks based on the file's block count,
-// so a non-block-aligned buffer here overflows by the rounding difference.
-#define CHUNK_BUF_SIZE 32768
+// Both loaded wholesale into RAM once - small enough (~2.4 MB combined, real
+// encoder output is 705,208 / 1,782,289 bytes) that the old chunked-streaming
+// scheme (needed back when frames.bin held raw, uncompressed per-frame data)
+// isn't worth the complexity anymore. Sized with headroom above the actual
+// file sizes rounded up to the next 512-byte block boundary, since read()
+// copies in whole blocks based on the file's block count.
+#define PALETTE_BUF_SIZE (768 * 1024)
+#define FRAME_RLE_BUF_SIZE (1920 * 1024)
 
 static uint8_t palette_buf[PALETTE_BUF_SIZE];
-static uint8_t chunk_buf[CHUNK_BUF_SIZE];
+static uint8_t frame_rle_buf[FRAME_RLE_BUF_SIZE];
+
+/**
+ * One grid cell's position within frame_rle_buf's temporal-RLE stream: a
+ * sequence of (run_len: 1 byte, tile_id: 4 bytes LE) pairs covering every
+ * frame at that screen position - see misc/uhhh.py's rle_encode_ids().
+ */
+struct CellCursor {
+    uint32_t offset;     // byte offset of the NEXT run to read
+    uint32_t tile_id;    // tile id for the currently active run
+    uint8_t remaining;   // frames left in the currently active run (0 = exhausted)
+};
+
+static struct CellCursor cursors[TILES_PER_FRAME];
 
 static void blit_tile(
     const uint8_t *tile_bitmap,
@@ -44,54 +57,33 @@ static void blit_tile(
     }
 }
 
-/**
- * Formats "f0.bin", "f1.bin", ..., "f19.bin" without needing sprintf.
- */
-static uint8_t format_chunk_name(
-    uint32_t chunk_idx,
-    char *out_name
-) {
-    uint8_t pos = 0;
-    out_name[pos++] = 'f';
-
-    if (chunk_idx >= 10) {
-        out_name[pos++] = '0' + (chunk_idx / 10);
-    }
-    out_name[pos++] = '0' + (chunk_idx % 10);
-
-    out_name[pos++] = '.';
-    out_name[pos++] = 'b';
-    out_name[pos++] = 'i';
-    out_name[pos++] = 'n';
-    out_name[pos] = '\0';
-    return pos;
+static uint32_t read_u32_le(const uint8_t *p) {
+    return (uint32_t) p[0] | ((uint32_t) p[1] << 8) | ((uint32_t) p[2] << 16) |
+           ((uint32_t) p[3] << 24);
 }
 
-/**
- * Counts valid frames in the current chunk (handles the shorter final chunk).
- */
-static uint32_t count_valid_frames(
-    const uint8_t *buf,
-    uint32_t max_frames
-) {
-    for (int32_t f = (int32_t) max_frames - 1; f >= 0; f--) {
-        const uint8_t *ptr = buf + ((size_t) f * BYTES_PER_FRAME);
-        for (size_t b = 0; b < BYTES_PER_FRAME; b++) {
-            if (ptr[b] != 0) {
-                return (uint32_t) (f + 1);
-            }
-        }
+/** Pull the next run off a cell's stream once its current run is used up. */
+static void advance_cursor(struct CellCursor *cur) {
+    if (cur->remaining > 0) {
+        return;
     }
-    return 0;
+    cur->remaining = frame_rle_buf[cur->offset];
+    cur->tile_id = read_u32_le(&frame_rle_buf[cur->offset + 1]);
+    cur->offset += 5;
 }
 
 void play_bad_apple(
     uint16_t offset_x,
     uint16_t offset_y
 ) {
+    // Now reached via the int 0x30 syscall gate (a 32-bit interrupt gate,
+    // which clears EFLAGS.IF on entry) instead of the old ring-0 main loop,
+    // which ran with interrupts already enabled. The pacing loop below
+    // depends on the PIT and keyboard ISRs actually firing to make
+    // progress, so without this it deadlocks on the very first frame.
     __asm__ volatile("sti");
 
-    // 1. Load palette.bin once into RAM
+    // 1. Load palette.bin (the tile dictionary) once into RAM
     struct EXT2DriverRequest palette_req = {
         .buf = palette_buf,
         .name = "palette.bin",
@@ -106,73 +98,62 @@ void play_bad_apple(
         return;
     }
 
+    // 2. Load frames.bin (header + TILES_PER_FRAME temporal-RLE streams)
+    struct EXT2DriverRequest frames_req = {
+        .buf = frame_rle_buf,
+        .name = "frames.bin",
+        .name_len = 10,
+        .parent_inode = ROOT_INODE,
+        .buffer_size = FRAME_RLE_BUF_SIZE,
+        .is_directory = false,
+    };
+    if (read(frames_req) != 0) {
+        framebuffer_write(0, 0, 'E', 0x0C, 0x00);
+        framebuffer_write(0, 1, 'F', 0x0C, 0x00);
+        return;
+    }
+
+    uint32_t num_frames = read_u32_le(&frame_rle_buf[0]);
+    uint32_t stream_pos = 4 + TILES_PER_FRAME * 4;
+    for (uint32_t i = 0; i < TILES_PER_FRAME; i++) {
+        uint32_t stream_len = read_u32_le(&frame_rle_buf[4 + i * 4]);
+        cursors[i].offset = stream_pos;
+        cursors[i].remaining = 0;
+        cursors[i].tile_id = 0;
+        stream_pos += stream_len;
+    }
+
     framebuffer_clear();
     uint32_t start_tick = pit_get_ticks();
-    uint32_t global_frame_idx = 0;
-    char chunk_name[12];
     bool interrupted = false;
 
-    // 2. Stream f0.bin, f1.bin, ... until read() returns 3 (Not found)
-    for (uint32_t chunk_idx = 0; !interrupted; chunk_idx++) {
-        // Zero buffer so the final partial chunk has clean trailing zeros
-        for (size_t z = 0; z < CHUNK_BUF_SIZE; z++) {
-            chunk_buf[z] = 0;
-        }
+    // 3. Decode and play, one frame at a time - all TILES_PER_FRAME cursors
+    // advance together, each independently tracking its own run.
+    for (uint32_t frame = 0; frame < num_frames && !interrupted; frame++) {
+        for (uint16_t row = 0; row < GRID_ROWS; row++) {
+            for (uint16_t col = 0; col < GRID_COLS; col++) {
+                struct CellCursor *cur = &cursors[row * GRID_COLS + col];
+                advance_cursor(cur);
+                cur->remaining--;
 
-        uint8_t name_len = format_chunk_name(chunk_idx, chunk_name);
-        struct EXT2DriverRequest chunk_req = {
-            .buf = chunk_buf,
-            .name = chunk_name,
-            .name_len = name_len,
-            .parent_inode = ROOT_INODE,
-            .buffer_size = CHUNK_BUF_SIZE,
-            .is_directory = false,
-        };
-
-        int8_t res = read(chunk_req);
-        if (res == 3) {
-            // Reached end of chunk sequence (no more fN.bin files)
-            break;
-        }
-        if (res != 0) {
-            framebuffer_write(0, 0, 'E', 0x0C, 0x00);
-            framebuffer_write(0, 1, 'C', 0x0C, 0x00);
-            return;
-        }
-
-        uint32_t frames_in_chunk = count_valid_frames(chunk_buf, CHUNK_FRAMES);
-
-        // 3. Play all frames in this 32 KB chunk
-        for (uint32_t i = 0; i < frames_in_chunk && !interrupted; i++) {
-            const uint8_t *frame_ptr =
-                chunk_buf + ((size_t) i * BYTES_PER_FRAME);
-
-            for (uint16_t row = 0; row < GRID_ROWS; row++) {
-                for (uint16_t col = 0; col < GRID_COLS; col++) {
-                    size_t offset = (row * GRID_COLS + col) * 2;
-                    uint16_t tile_id = (uint16_t) frame_ptr[offset] |
-                                       ((uint16_t) frame_ptr[offset + 1] << 8);
-
-                    const uint8_t *tile_bitmap =
-                        &palette_buf[(size_t) tile_id * 8];
-                    blit_tile(
-                        tile_bitmap, offset_x + (col * 8), offset_y + (row * 8)
-                    );
-                }
+                const uint8_t *tile_bitmap =
+                    &palette_buf[(size_t) cur->tile_id * 8];
+                blit_tile(
+                    tile_bitmap, offset_x + (col * 8), offset_y + (row * 8)
+                );
             }
+        }
 
-            global_frame_idx++;
-            uint32_t next_frame_tick =
-                start_tick + (global_frame_idx * PIT_HZ) / VIDEO_FPS;
-            while (pit_get_ticks() < next_frame_tick) {
-                char c;
-                get_keyboard_buffer(&c); // non-blocking; 0 if nothing pending
-                if (c) {
-                    interrupted = true;
-                    break;
-                }
-                __asm__ volatile("hlt");
+        uint32_t next_frame_tick =
+            start_tick + ((frame + 1) * PIT_HZ) / VIDEO_FPS;
+        while (pit_get_ticks() < next_frame_tick) {
+            char c;
+            get_keyboard_buffer(&c); // non-blocking; 0 if nothing pending
+            if (c) {
+                interrupted = true;
+                break;
             }
+            __asm__ volatile("hlt");
         }
     }
 }

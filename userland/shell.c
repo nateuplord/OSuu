@@ -1312,9 +1312,9 @@ int shell_badapple(char **args) {
         shell_printf("Usage: badapple\nPlay the Bad Apple animation.\n");
         return 1;
     }
-    play_bad_apple(288, 216); // centers the 64x48 video in the 640x480 screen
+    play_bad_apple(240, 180); // centers the 160x120 video in the 640x480 screen
 
-    // play_bad_apple only touches its own centered 64x48 patch, leaving
+    // play_bad_apple only touches its own centered 160x120 patch, leaving
     // whatever shell text was already on screen around it - clear the whole
     // screen and reset to the top-left so the next prompt starts clean.
     framebuffer_clear();
