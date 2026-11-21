@@ -57,7 +57,12 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
 
     // Process PCB
     int32_t p_index = process_list_get_inactive_index();
+    if (p_index == -1) {
+        retcode = PROCESS_CREATE_FAIL_MAX_PROCESS_EXCEEDED;
+        goto exit_cleanup;
+    }
     struct ProcessControlBlock *new_pcb = &(_process_list[p_index]);
+    memset(new_pcb, 0, sizeof(struct ProcessControlBlock));
 
     new_pcb->metadata.pid = process_generate_new_pid();
 
