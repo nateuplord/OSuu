@@ -73,28 +73,52 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     framebuffer_set_cursor(0, 0);
     keyboard_state_activate();
 
-    if (!make_user_accessible(
-            USER_PROGRAM_VIRTUAL_ADDR, USER_PROGRAM_MAX_PAGES
-        ) ||
-        !make_user_accessible(
-            USER_STACK_PAGE_VIRTUAL_ADDR - (USER_STACK_PAGES - 1) * 0x1000,
-            USER_STACK_PAGES
-        )) {
-        halt_with_error(-1);
-    }
-
+    // Process initialization (4.1.4 stuff)
     struct EXT2DriverRequest request = {
-        .buf = USER_PROGRAM_VIRTUAL_ADDR,
+        .buf = (uint8_t *) 0x0,
         .name = "shell",
         .parent_inode = 1,
-        .buffer_size = 0x100000,
+        .buffer_size = 4 * FRAME_SIZE, // use 0x100000 once PROCESS_PAGE_FRAME_COUNT_MAX >= 257
         .name_len = 5,
+        .is_directory = false,
     };
-    int8_t ret = read(request);
-    if (ret != 0) {
-        halt_with_error(ret);
+
+    int32_t create_status = process_create_user_process(request);
+    if (create_status != PROCESS_CREATE_SUCCESS) {
+        halt_with_error(create_status);
     }
 
+    _process_list[0].metadata.state = PROCESS_STATE_RUNNING;
+    paging_use_page_directory(
+        (struct PgDir *) _process_list[0].context.page_directory_virtual_addr
+    );
+    
     set_tss_kernel_current_stack();
-    kernel_execute_user_program(USER_PROGRAM_VIRTUAL_ADDR);
+    kernel_execute_user_program((void *) _process_list[0].context.eip);
+
+    // 3.3 things (below) are replaced with 4.1.4 process initialization. delete them if you'd like. i'm just afraid of messing up something :') -natan
+    // if (!make_user_accessible(
+    //         USER_PROGRAM_VIRTUAL_ADDR, USER_PROGRAM_MAX_PAGES
+    //     ) ||
+    //     !make_user_accessible(
+    //         USER_STACK_PAGE_VIRTUAL_ADDR - (USER_STACK_PAGES - 1) * 0x1000,
+    //         USER_STACK_PAGES
+    //     )) {
+    //     halt_with_error(-1);
+    // }
+
+    // struct EXT2DriverRequest request = {
+    //     .buf = USER_PROGRAM_VIRTUAL_ADDR,
+    //     .name = "shell",
+    //     .parent_inode = 1,
+    //     .buffer_size = 0x100000,
+    //     .name_len = 5,
+    // };
+    // int8_t ret = read(request);
+    // if (ret != 0) {
+    //     halt_with_error(ret);
+    // }
+
+    // set_tss_kernel_current_stack();
+    // kernel_execute_user_program(USER_PROGRAM_VIRTUAL_ADDR);
 }
