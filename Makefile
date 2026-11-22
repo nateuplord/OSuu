@@ -59,7 +59,7 @@ iso: kernel
 	@mkdir -p                       $(OUTPUT_FOLDER)/iso/boot/grub
 	@cp $(OUTPUT_FOLDER)/kernel     $(OUTPUT_FOLDER)/iso/boot/
 	@cp $(BOOT_FOLDER)/grub.cfg     $(OUTPUT_FOLDER)/iso/boot/grub/
-	@grub-mkrescue -o               $(OUTPUT_FOLDER)/$(ISO_NAME).iso $(OUTPUT_FOLDER)/iso
+	@grub2-mkrescue -o              $(OUTPUT_FOLDER)/$(ISO_NAME).iso $(OUTPUT_FOLDER)/iso
 	@rm -r                          $(OUTPUT_FOLDER)/iso/
 
 -include $(OBJS:.o=.d)
