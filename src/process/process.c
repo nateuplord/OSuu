@@ -3,11 +3,20 @@
 #include "memory/paging.h"
 #include "stdlib/string.h"
 
-static uint32_t ceil_div(uint32_t a, uint32_t b) {
+static uint32_t ceil_div(
+    uint32_t a,
+    uint32_t b
+) {
     return (a / b) + (a % b != 0);
 }
 
 struct ProcessControlBlock _process_list[PROCESS_COUNT_MAX] = {0};
+
+/** Dedicated kernel stack per process, used whenever ring 3 is interrupted. */
+static uint8_t process_kernel_stacks[PROCESS_COUNT_MAX]
+                                    [PROCESS_KERNEL_STACK_SIZE]
+    __attribute__((aligned(16)));
+
 struct ProcessManagerState process_manager_state = {
     .is_process_active = {false},
     .active_process_count = 0,
@@ -15,7 +24,8 @@ struct ProcessManagerState process_manager_state = {
 
 static int32_t process_list_get_inactive_index(void) {
     for (int32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
-        if (!process_manager_state.is_process_active[i] && _process_list[i].metadata.state == PROCESS_STATE_INACTIVE) {
+        if (!process_manager_state.is_process_active[i] &&
+            _process_list[i].metadata.state == PROCESS_STATE_INACTIVE) {
             return i;
         }
     }
@@ -30,11 +40,57 @@ static uint32_t process_generate_new_pid(void) {
 struct ProcessControlBlock *process_get_current_running_pcb_pointer(void) {
     for (uint32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
         if (process_manager_state.is_process_active[i] &&
-        _process_list[i].metadata.state == PROCESS_STATE_RUNNING) {
+            _process_list[i].metadata.state == PROCESS_STATE_RUNNING) {
             return &_process_list[i];
         }
     }
     return NULL;
+}
+
+void context_init(
+    struct Context *context,
+    uint32_t entrypoint,
+    uint32_t page_directory_virtual_addr,
+    uint32_t kernel_stack_top
+) {
+    memset(context, 0, sizeof(struct Context));
+
+    uint32_t *frame = context->interrupt_frame;
+    uint32_t data_selector = GDT_USER_DATA_SEGMENT_SELECTOR_RPL3;
+
+    frame[CONTEXT_FRAME_GS] = data_selector;
+    frame[CONTEXT_FRAME_FS] = data_selector;
+    frame[CONTEXT_FRAME_ES] = data_selector;
+    frame[CONTEXT_FRAME_DS] = data_selector;
+    frame[CONTEXT_FRAME_EIP] = entrypoint;
+    frame[CONTEXT_FRAME_CS] = GDT_USER_CODE_SEGMENT_SELECTOR_RPL3;
+    frame[CONTEXT_FRAME_EFLAGS] =
+        CPU_EFLAGS_BASE_FLAG | CPU_EFLAGS_FLAG_INTERRUPT_ENABLE;
+    frame[CONTEXT_FRAME_USER_ESP] = KERNEL_VIRTUAL_ADDRESS_BASE - 4;
+    frame[CONTEXT_FRAME_USER_SS] = data_selector;
+
+    context->cpu.segment.ds = data_selector;
+    context->cpu.segment.es = data_selector;
+    context->cpu.segment.fs = data_selector;
+    context->cpu.segment.gs = data_selector;
+    context->cpu.stack.esp = frame[CONTEXT_FRAME_USER_ESP];
+
+    context->eip = entrypoint;
+    context->eflags = frame[CONTEXT_FRAME_EFLAGS];
+    context->page_directory_virtual_addr = page_directory_virtual_addr;
+    context->kernel_stack_top = kernel_stack_top;
+}
+
+void process_save_current_context(const void *interrupt_frame) {
+    struct ProcessControlBlock *pcb = process_get_current_running_pcb_pointer();
+    if (pcb == NULL) {
+        return;
+    }
+
+    const uint32_t *src = (const uint32_t *) interrupt_frame;
+    for (uint32_t i = 0; i < CONTEXT_INTERRUPT_FRAME_DWORD_COUNT; i++) {
+        pcb->context.interrupt_frame[i] = src[i];
+    }
 }
 
 int32_t process_create_user_process(struct EXT2DriverRequest request) {
@@ -53,6 +109,7 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     // Check whether memory is enough for the executable and additional frame for user stack
     uint32_t page_frame_count_needed =
         ceil_div(request.buffer_size + FRAME_SIZE, FRAME_SIZE);
+
     if (!pg_check_alloc(page_frame_count_needed) ||
         page_frame_count_needed > PROCESS_PAGE_FRAME_COUNT_MAX) {
         retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
@@ -61,20 +118,27 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
 
     // Process PCB
     int32_t p_index = process_list_get_inactive_index();
+
     if (p_index == -1) {
         retcode = PROCESS_CREATE_FAIL_MAX_PROCESS_EXCEEDED;
         goto exit_cleanup;
     }
+
     struct ProcessControlBlock *new_pcb = &(_process_list[p_index]);
     memset(new_pcb, 0, sizeof(struct ProcessControlBlock));
+
+    uint32_t kernel_stack_top =
+        (uint32_t) &process_kernel_stacks[p_index][PROCESS_KERNEL_STACK_SIZE];
 
     // 1. create isolated page dir and switch CR3 so mappings and read() target it
     struct PgDir *old_page_dir = paging_get_current_page_directory_addr();
     struct PgDir *new_page_dir = paging_create_new_page_directory();
+
     if (new_page_dir == NULL) {
         retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
         goto exit_cleanup;
     }
+
     paging_use_page_directory(new_page_dir);
 
     // 2. map user code/data frames starting from virt addr 0x00000000
@@ -92,7 +156,8 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     }
 
     // 3. map 1 user stack frame right below higher-half kernel at 0xBFFFF000
-    void *user_stack_virt_addr = (void *) (KERNEL_VIRTUAL_ADDRESS_BASE - FRAME_SIZE);
+    void *user_stack_virt_addr =
+        (void *) (KERNEL_VIRTUAL_ADDRESS_BASE - FRAME_SIZE);
     if (!pg_alloc_user_frame(new_page_dir, user_stack_virt_addr)) {
         paging_use_page_directory(old_page_dir);
         paging_free_page_directory(new_page_dir);
@@ -117,22 +182,19 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     // 5. restore caller's page directory
     paging_use_page_directory(old_page_dir);
 
-    // 6. initialize CPU context
-    uint32_t user_data_selector = GDT_USER_DATA_SEGMENT_SELECTOR | 0x3;
-    new_pcb->context.cpu.segment.ds = user_data_selector;
-    new_pcb->context.cpu.segment.es = user_data_selector;
-    new_pcb->context.cpu.segment.fs = user_data_selector;
-    new_pcb->context.cpu.segment.gs = user_data_selector;
-    new_pcb->context.cpu.stack.esp = KERNEL_VIRTUAL_ADDRESS_BASE - 4;
-
-    new_pcb->context.eip = 0x00000000;
-    new_pcb->context.eflags = CPU_EFLAGS_BASE_FLAG | CPU_EFLAGS_FLAG_INTERRUPT_ENABLE;
-    new_pcb->context.page_directory_virtual_addr = (uint32_t) new_page_dir;
+    // 6. initialize CPU context (including the frame used by context_restore)
+    context_init(
+        &new_pcb->context, 0, (uint32_t) new_page_dir, kernel_stack_top
+    );
 
     // 7. initialize PCB metadata and manager bookkeeping
     new_pcb->metadata.pid = process_generate_new_pid();
     new_pcb->metadata.state = PROCESS_STATE_READY;
-    uint32_t copy_len = request.name_len < PROCESS_NAME_LENGTH_MAX - 1 ? request.name_len : PROCESS_NAME_LENGTH_MAX - 1;
+
+    uint32_t copy_len = request.name_len < PROCESS_NAME_LENGTH_MAX - 1
+                          ? request.name_len
+                          : PROCESS_NAME_LENGTH_MAX - 1;
+
     memcpy(new_pcb->metadata.name, request.name, copy_len);
     new_pcb->metadata.name[copy_len] = '\0';
 

@@ -13,6 +13,44 @@
 #define PROCESS_PAGE_FRAME_COUNT_MAX 8
 #define PROCESS_COUNT_MAX 16
 
+/// Kernel stack reserved for each process, used on interrupts from ring 3.
+#define PROCESS_KERNEL_STACK_SIZE 0x1000u
+
+/**
+ * Raw interrupt-frame snapshot size (in dwords), measured from the ISR's
+ * frame base (the PUSHAD image) through the inter-privilege SS/ESP slots:
+ *
+ *   0 edi, 1 esi, 2 ebp, 3 esp-slot, 4 ebx, 5 edx, 6 ecx, 7 eax,
+ *   8 gs,  9 fs,  10 es, 11 ds, 12 int_number, 13 error_code,
+ *   14 eip, 15 cs, 16 eflags, 17 user esp, 18 user ss
+ *
+ * Restoring is the exact inverse of the ISR epilogue: `popad`, four segment
+ * pops, `add esp, 8`, then `iret` (which consumes eip/cs/eflags/esp/ss).
+ */
+#define CONTEXT_INTERRUPT_FRAME_DWORD_COUNT 19
+
+enum ContextInterruptFrameIndex {
+    CONTEXT_FRAME_EDI = 0,
+    CONTEXT_FRAME_ESI,
+    CONTEXT_FRAME_EBP,
+    CONTEXT_FRAME_ESP_SLOT,
+    CONTEXT_FRAME_EBX,
+    CONTEXT_FRAME_EDX,
+    CONTEXT_FRAME_ECX,
+    CONTEXT_FRAME_EAX,
+    CONTEXT_FRAME_GS,
+    CONTEXT_FRAME_FS,
+    CONTEXT_FRAME_ES,
+    CONTEXT_FRAME_DS,
+    CONTEXT_FRAME_INT_NUMBER,
+    CONTEXT_FRAME_ERROR_CODE,
+    CONTEXT_FRAME_EIP,
+    CONTEXT_FRAME_CS,
+    CONTEXT_FRAME_EFLAGS,
+    CONTEXT_FRAME_USER_ESP,
+    CONTEXT_FRAME_USER_SS,
+};
+
 #define KERNEL_RESERVED_PAGE_FRAME_COUNT 4
 #define KERNEL_VIRTUAL_ADDRESS_BASE 0xC0000000
 
@@ -60,7 +98,13 @@ struct Context {
     uint32_t eip;
     uint32_t eflags;
     uint32_t page_directory_virtual_addr;
-} __attribute__((packed));
+
+    /** Raw snapshot of the interrupt frame, used for context switching. */
+    uint32_t interrupt_frame[CONTEXT_INTERRUPT_FRAME_DWORD_COUNT];
+
+    /** Top (exclusive) of this process's own kernel stack. */
+    uint32_t kernel_stack_top;
+};
 
 typedef enum PROCESS_STATE {
     PROCESS_STATE_INACTIVE,
@@ -106,6 +150,44 @@ extern struct ProcessManagerState process_manager_state;
  * @return Will return NULL if there's no running process
  */
 struct ProcessControlBlock *process_get_current_running_pcb_pointer(void);
+
+/**
+ * Build the initial interrupt frame for a freshly created process so the
+ * first context restore can `iret` straight into ring 3.
+ *
+ * @param context                    Context to initialize
+ * @param entrypoint                 User program entrypoint (typically 0)
+ * @param page_directory_virtual_addr Page directory virtual address for CR3
+ * @param kernel_stack_top           Top of this process's kernel stack
+ */
+void context_init(
+    struct Context *context,
+    uint32_t entrypoint,
+    uint32_t page_directory_virtual_addr,
+    uint32_t kernel_stack_top
+);
+
+/**
+ * Snapshot the live interrupt frame into the currently running process.
+ * Called from the ISR while `esp` points at the frame base. No-op when no
+ * process is marked RUNNING (e.g. interrupts during kernel setup).
+ *
+ * @param interrupt_frame Pointer to the ISR's raw frame base
+ */
+void process_save_current_context(const void *interrupt_frame);
+
+/**
+ * Restore a saved context and jump into ring 3. Implemented in asm; never
+ * returns. Loads the frame onto the target kernel stack, switches CR3 and
+ * the TSS kernel stack, then restores registers and `iret`s.
+ *
+ * @param kernel_stack_top Top of the target process's kernel stack
+ * @param interrupt_frame  Raw frame snapshot to restore
+ */
+void context_restore(
+    uint32_t kernel_stack_top,
+    const uint32_t *interrupt_frame
+);
 
 /**
  * Create new user process and setup the virtual address space.

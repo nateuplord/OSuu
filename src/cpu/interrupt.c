@@ -16,6 +16,10 @@ void set_tss_kernel_current_stack(void) {
     _interrupt_tss_entry.esp0 = (uint32_t) __builtin_frame_address(0) + 8;
 }
 
+void set_tss_kernel_stack(uint32_t stack_top) {
+    _interrupt_tss_entry.esp0 = stack_top;
+}
+
 void io_wait(void) {
     out(0x80, 0);
 }

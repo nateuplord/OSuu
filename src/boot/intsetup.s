@@ -1,4 +1,5 @@
 extern main_interrupt_handler
+extern process_save_current_context
 global isr_stub_table
 
 ; Generic handler section for interrupt
@@ -29,10 +30,12 @@ call_generic_handler:
 
     mov eax, [esp+52]            ; Get ds register / segment selector for data
     and eax, 0x3                 ; Check intra / inter privilege (sets ZF flag)
+    mov ebx, 0                   ; 0 = intra-privilege, no ring-3 frame to save
     jz  segment_register_setup   ; Skip esp manipulation if intra-privilege
 
 interprivilege_interrupt:
     ; Inter-privilege: get user esp from the x86 interrupt stack
+    mov ebx, 1
     mov eax, [esp+76]
     mov [esp+20], eax
 
@@ -45,6 +48,16 @@ segment_register_setup:
     mov gs, ax
     pop eax
     popf
+
+    ; Snapshot the full ring-3 interrupt frame into the running process.
+    ; At this point esp points at the PUSHAD image (the frame base).
+    test ebx, ebx
+    jz   .no_context_save
+    mov  eax, esp
+    push eax                     ; interrupt_frame argument
+    call process_save_current_context
+    add  esp, 4
+.no_context_save:
 
     ; Use the current esp as base stack frame for main_interrupt_handler()
     mov ebp, esp

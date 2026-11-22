@@ -210,4 +210,12 @@ void main_interrupt_handler(struct InterruptFrame frame);
 /// Set kernel stack in TSS
 void set_tss_kernel_current_stack(void);
 
+/**
+ * Point the TSS at a specific process's kernel stack. Called on every
+ * context switch so the next interrupt from ring 3 uses that stack.
+ *
+ * @param stack_top Top (exclusive address) of the process's kernel stack
+ */
+void set_tss_kernel_stack(uint32_t stack_top);
+
 #endif

@@ -2,6 +2,7 @@ global loader                           ; the entry symbol for ELF
 global load_gdt                         ; load GDT table
 global set_tss_register                 ; set tss register to GDT entry
 global kernel_execute_user_program      ; execute initial user program from kernel
+global context_restore                  ; restore saved process context, never returns
 
 extern kernel_setup                     ; kernel C entrypoint
 extern _pg_kernel_pg_dir                ; kernel page directory
@@ -9,6 +10,10 @@ extern _pg_kernel_pg_table              ; kernel page table
 
 KERNEL_VIRT_BASE equ 0xC0000000         ; kernel virtual memory
 KERNEL_STACK_SIZE   equ 2097152         ; size of stack in bytes
+
+; Must match CONTEXT_INTERRUPT_FRAME_DWORD_COUNT in header/process/process.h.
+CONTEXT_FRAME_DWORDS equ 19
+CONTEXT_FRAME_BYTES  equ CONTEXT_FRAME_DWORDS * 4
 
 ; Must match header/memory/paging.h's KERNEL_RESERVED_PAGE_TABLE_COUNT exactly -
 ; see that header for what this constrains.
@@ -176,4 +181,34 @@ kernel_execute_user_program:
     push ebx                 ; EFLAGS
     push 0x18 | 0x3          ; CS (User Code selector 0x1B)
     push eax                 ; EIP (0x0)
+    iret
+
+; void context_restore(uint32_t kernel_stack_top, const uint32_t *frame)
+;
+; Copies a saved interrupt frame onto the target process's kernel stack,
+; switches to that stack and reverses the ISR prologue. Never returns:
+; `iret` drops straight into ring 3 at the restored eip/cs/eflags.
+context_restore:
+    mov eax, [esp + 4]       ; kernel_stack_top
+    mov edx, [esp + 8]       ; saved frame source
+    sub eax, CONTEXT_FRAME_BYTES
+    mov ecx, CONTEXT_FRAME_DWORDS
+.copy_frame:
+    mov ebx, [edx]
+    mov [eax], ebx
+    add eax, 4
+    add edx, 4
+    loop .copy_frame
+
+    ; eax now points just past the frame (the kernel stack top). Rewind to
+    ; the frame base, which is where the ISR restore sequence expects esp.
+    sub eax, CONTEXT_FRAME_BYTES
+    mov esp, eax
+
+    popad
+    pop gs
+    pop fs
+    pop es
+    pop ds
+    add esp, 8               ; discard int_number and error_code
     iret

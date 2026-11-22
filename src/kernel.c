@@ -9,16 +9,20 @@
 #include "fs/ext2.h"
 #include "memory/paging.h"
 #include "memory/swap.h"
-#include "text/framebuffer.h"
 #include "process/process.h"
+#include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 #define USER_PROGRAM_VIRTUAL_ADDR ((uint8_t *) 0)
-#define USER_PROGRAM_MAX_PAGES                                                 \
-    256 // 1 MiB, matching linker.ld's program size cap
+
+// 1 MiB, matching linker.ld's program size cap
+#define USER_PROGRAM_MAX_PAGES 256
+
 #define USER_STACK_PAGE_VIRTUAL_ADDR ((uint8_t *) 0x3FF000)
-#define USER_STACK_PAGES 16 // 64 KiB, growing down from 0x400000
+
+// 64 KiB, growing down from 0x400000
+#define USER_STACK_PAGES 16
 
 /** Report a setup failure on the framebuffer instead of jumping into garbage. */
 static void halt_with_error(int8_t code) {
@@ -57,8 +61,8 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     swap_init();
     initialize_idt();
 
-    (void)
-        mb_info; // no longer used - video mode is set directly via VBE, not read from multiboot
+    // no longer used - video mode is set directly via VBE, not read from multiboot
+    (void) mb_info;
 
     struct VbeModeInfo vbe_info;
     if (!vbe_set_mode(0x101, &vbe_info)) {
@@ -80,7 +84,10 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
         .buf = (uint8_t *) 0x0,
         .name = "shell",
         .parent_inode = 1,
-        .buffer_size = 4 * FRAME_SIZE, // use 0x100000 once PROCESS_PAGE_FRAME_COUNT_MAX >= 257, especially for chapter 4.3
+
+        // use 0x100000 once PROCESS_PAGE_FRAME_COUNT_MAX >= 257
+        .buffer_size = 4 * FRAME_SIZE,
+
         .name_len = 5,
         .is_directory = false,
     };
@@ -90,13 +97,17 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
         halt_with_error(create_status);
     }
 
-    _process_list[0].metadata.state = PROCESS_STATE_RUNNING;
+    struct ProcessControlBlock *initial_process = &_process_list[0];
+    initial_process->metadata.state = PROCESS_STATE_RUNNING;
+
     paging_use_page_directory(
-        (struct PgDir *) _process_list[0].context.page_directory_virtual_addr
+        (struct PgDir *) initial_process->context.page_directory_virtual_addr
     );
-    
-    set_tss_kernel_current_stack();
-    kernel_execute_user_program((void *) _process_list[0].context.eip);
+    set_tss_kernel_stack(initial_process->context.kernel_stack_top);
+    context_restore(
+        initial_process->context.kernel_stack_top,
+        initial_process->context.interrupt_frame
+    );
 
     // 3.3 things (below) are replaced with 4.1.4 process initialization. delete them if you'd like. i'm just afraid of messing up something :') -natan
     // if (!make_user_accessible(
