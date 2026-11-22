@@ -81,9 +81,15 @@ void context_init(
     context->kernel_stack_top = kernel_stack_top;
 }
 
-void process_save_current_context(const void *interrupt_frame) {
+volatile bool process_interrupt_frame_valid = false;
+
+void process_save_current_context(
+    const void *interrupt_frame,
+    bool from_ring3
+) {
     struct ProcessControlBlock *pcb = process_get_current_running_pcb_pointer();
-    if (pcb == NULL) {
+    process_interrupt_frame_valid = from_ring3 && pcb != NULL;
+    if (!process_interrupt_frame_valid) {
         return;
     }
 

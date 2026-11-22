@@ -1,6 +1,7 @@
 #include "driver/pit.h"
 #include "cpu/interrupt.h"
 #include "cpu/portio.h"
+#include "process/scheduler.h"
 #include <stdint.h>
 
 static volatile uint32_t pit_ticks = 0;
@@ -22,4 +23,5 @@ uint32_t pit_get_ticks(void) {
 void pit_isr(void) {
     pic_ack(IRQ_TIMER);
     ++pit_ticks;
+    scheduler_tick();
 }

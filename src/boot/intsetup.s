@@ -49,15 +49,14 @@ segment_register_setup:
     pop eax
     popf
 
-    ; Snapshot the full ring-3 interrupt frame into the running process.
-    ; At this point esp points at the PUSHAD image (the frame base).
-    test ebx, ebx
-    jz   .no_context_save
+    ; Snapshot the interrupt frame into the running process. `ebx` records
+    ; whether this was an inter-privilege (ring 3) interrupt; esp still points
+    ; at the PUSHAD image, i.e. the raw frame base.
     mov  eax, esp
+    push ebx                     ; from_ring3 argument
     push eax                     ; interrupt_frame argument
     call process_save_current_context
-    add  esp, 4
-.no_context_save:
+    add  esp, 8
 
     ; Use the current esp as base stack frame for main_interrupt_handler()
     mov ebp, esp

@@ -168,13 +168,23 @@ void context_init(
 );
 
 /**
+ * True when the most recent interrupt carried a valid ring-3 frame that was
+ * successfully saved into the running process. The scheduler only switches
+ * tasks when this is set - intra-privilege interrupts have no ring-3 frame.
+ */
+extern volatile bool process_interrupt_frame_valid;
+
+/**
  * Snapshot the live interrupt frame into the currently running process.
- * Called from the ISR while `esp` points at the frame base. No-op when no
- * process is marked RUNNING (e.g. interrupts during kernel setup).
+ * Called from the ISR while `esp` points at the frame base.
  *
  * @param interrupt_frame Pointer to the ISR's raw frame base
+ * @param from_ring3      Whether the interrupt came from user mode
  */
-void process_save_current_context(const void *interrupt_frame);
+void process_save_current_context(
+    const void *interrupt_frame,
+    bool from_ring3
+);
 
 /**
  * Restore a saved context and jump into ring 3. Implemented in asm; never

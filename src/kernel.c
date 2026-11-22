@@ -92,9 +92,12 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
         .is_directory = false,
     };
 
-    int32_t create_status = process_create_user_process(request);
-    if (create_status != PROCESS_CREATE_SUCCESS) {
-        halt_with_error(create_status);
+    // Two instances give the round-robin scheduler something to switch between.
+    for (int i = 0; i < 2; i++) {
+        int32_t create_status = process_create_user_process(request);
+        if (create_status != PROCESS_CREATE_SUCCESS) {
+            halt_with_error(create_status);
+        }
     }
 
     struct ProcessControlBlock *initial_process = &_process_list[0];
