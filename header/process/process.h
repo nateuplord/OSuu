@@ -10,8 +10,10 @@
 #include "memory/paging.h"
 
 #define PROCESS_NAME_LENGTH_MAX 32
-#define PROCESS_PAGE_FRAME_COUNT_MAX 8
+#define PROCESS_PAGE_FRAME_COUNT_MAX 257
 #define PROCESS_COUNT_MAX 16
+#define PROCESS_PRIORITY_DEFAULT 1u
+#define PROCESS_PRIORITY_MAX 255u
 
 /// Kernel stack reserved for each process, used on interrupts from ring 3.
 #define PROCESS_KERNEL_STACK_SIZE 0x1000u
@@ -83,7 +85,11 @@ enum ContextInterruptFrameIndex {
 #define PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY 3
 #define PROCESS_CREATE_FAIL_FS_READ_FAILURE 4
 
-//note: might need to increase PROCESS_PAGE_FRAME_COUNT_MAX (e.g., to 256) when loading shell as a process
+/**
+ * One frame is reserved for the user stack, so PROCESS_PAGE_FRAME_COUNT_MAX
+ * must stay at least one larger than the largest program page count. The
+ * default 1 MiB program cap therefore needs 257 frames.
+ */
 
 /**
  * Contain information needed for task to be able to get interrupted and resumed later
@@ -125,6 +131,9 @@ struct ProcessControlBlock {
         uint32_t pid;
         char name[PROCESS_NAME_LENGTH_MAX];
         enum PROCESS_STATE state;
+
+        /** Higher value means the scheduler runs this process first. */
+        uint8_t priority;
     } metadata;
 
     struct Context context;
@@ -204,10 +213,14 @@ void context_restore(
  * All available return code is defined with macro "PROCESS_CREATE_*"
  * 
  * @note          This procedure assumes no reentrancy in ISR
- * @param request Appropriate read request for the executable
- * @return        Process creation return code
+ * @param request  Appropriate read request for the executable
+ * @param priority Scheduling priority; 0 becomes PROCESS_PRIORITY_DEFAULT
+ * @return         Process creation return code
  */
-int32_t process_create_user_process(struct EXT2DriverRequest request);
+int32_t process_create_user_process(
+    struct EXT2DriverRequest request,
+    uint8_t priority
+);
 
 /**
  * Destroy process then release page directory and process control block

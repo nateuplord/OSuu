@@ -44,4 +44,9 @@ void play_bad_apple(uint16_t offset_x, uint16_t offset_y);
 void get_keyboard_buffer(char *buf);
 void keyboard_state_activate(void);
 
+/** Process management - backed by int 0x30 services 17-19. */
+__attribute__((noreturn)) void exit_process(void);
+uint32_t getpid(void);
+void yield(void);
+
 #endif

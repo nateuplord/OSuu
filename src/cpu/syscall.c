@@ -2,6 +2,8 @@
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
 #include "misc/badapple.h"
+#include "process/process.h"
+#include "process/scheduler.h"
 #include "text/framebuffer.h"
 #include <stdint.h>
 
@@ -31,9 +33,18 @@ void syscall(struct InterruptFrame frame) {
                 delete (*(struct EXT2DriverRequest *) frame.cpu.general.ebx);
             break;
 
-        case SYSCALL_KEYBOARD_GETCHAR:
-            get_keyboard_buffer((char *) frame.cpu.general.ebx);
+        case SYSCALL_KEYBOARD_GETCHAR: {
+            char *buffer = (char *) frame.cpu.general.ebx;
+            get_keyboard_buffer(buffer);
+
+            // No key yet: let another runnable process use the CPU. If every
+            // process is waiting, scheduler_block_current() returns false and
+            // this call falls back to the old nonblocking behaviour.
+            if (*buffer == 0) {
+                scheduler_block_current(SCHEDULER_WAIT_KEYBOARD);
+            }
             break;
+        }
 
         case SYSCALL_TEXT_PUTCHAR:
             putchar(
@@ -117,6 +128,22 @@ void syscall(struct InterruptFrame frame) {
 
         case SYSCALL_TEXT_CLEAR:
             framebuffer_clear();
+            break;
+
+        case SYSCALL_PROCESS_EXIT:
+            scheduler_terminate_current();
+            break;
+
+        case SYSCALL_PROCESS_GETPID: {
+            struct ProcessControlBlock *pcb =
+                process_get_current_running_pcb_pointer();
+            *(uint32_t *) frame.cpu.general.ebx =
+                pcb == NULL ? 0 : pcb->metadata.pid;
+            break;
+        }
+
+        case SYSCALL_PROCESS_YIELD:
+            scheduler_tick();
             break;
 
         default:

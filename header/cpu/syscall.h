@@ -39,6 +39,11 @@
 #define SYSCALL_PLAY_BADAPPLE 15
 #define SYSCALL_TEXT_CLEAR 16
 
+/** Process management additions used by the multitasking steps. */
+#define SYSCALL_PROCESS_EXIT 17
+#define SYSCALL_PROCESS_GETPID 18
+#define SYSCALL_PROCESS_YIELD 19
+
 /**
  * Dispatches a syscall based on the trapped CPU state's eax/ebx/ecx/edx.
  * Called from main_interrupt_handler() for SYSCALL_INTERRUPT_VECTOR - not

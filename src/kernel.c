@@ -10,6 +10,7 @@
 #include "memory/paging.h"
 #include "memory/swap.h"
 #include "process/process.h"
+#include "process/scheduler.h"
 #include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -57,6 +58,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     set_tss_register();
     pic_remap();
     pit_init(100);
+    scheduler_init();
     initialize_filesystem_ext2();
     swap_init();
     initialize_idt();
@@ -85,16 +87,19 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
         .name = "shell",
         .parent_inode = 1,
 
-        // use 0x100000 once PROCESS_PAGE_FRAME_COUNT_MAX >= 257
-        .buffer_size = 4 * FRAME_SIZE,
+        // Full 1 MiB program cap now that the PCB can hold 257 frames.
+        .buffer_size = 0x100000,
 
         .name_len = 5,
         .is_directory = false,
     };
 
-    // Two instances give the round-robin scheduler something to switch between.
-    for (int i = 0; i < 2; i++) {
-        int32_t create_status = process_create_user_process(request);
+    // Different priorities exercise the priority scheduler; the lower
+    // priority instance runs while the higher one waits for keyboard input.
+    static const uint8_t process_priorities[2] = {2, 1};
+    for (uint32_t i = 0; i < 2; i++) {
+        int32_t create_status =
+            process_create_user_process(request, process_priorities[i]);
         if (create_status != PROCESS_CREATE_SUCCESS) {
             halt_with_error(create_status);
         }

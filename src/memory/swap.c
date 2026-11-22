@@ -1,5 +1,6 @@
 #include "memory/swap.h"
 #include "memory/paging.h"
+#include "process/scheduler.h"
 #include <stdint.h>
 
 struct SwapManager swap_manager;
@@ -156,11 +157,16 @@ void handle_page_fault(uint32_t error_code) {
     uint32_t dir_idx = v_addr >> 22;
     uint32_t table_idx = (v_addr >> 12) & 0x3FF;
 
+    // Avoid pg_get_table() here: it allocates a page table as a side effect,
+    // which would hand an unmapped access a fresh mapping instead of killing
+    // the offending process.
+    if (!pg_dir->table[dir_idx].flags.present) {
+        scheduler_terminate_current();
+    }
+
     struct PgTable *table = pg_get_table(pg_dir, dir_idx);
     if (!table) {
-        // No page table at all for this region: truly unmapped access.
-        // TODO: segfault / kill the process
-        return;
+        scheduler_terminate_current();
     }
 
     struct PgTableEntry *pte = &table->data[table_idx];
@@ -173,8 +179,7 @@ void handle_page_fault(uint32_t error_code) {
                 // If swap in failed, RAM is completely full, we must evict a different page to make room
                 if (!evict_page_to_swap(pg_dir)) {
                     // Out of RAM and out of swap space.
-                    // TODO: kernel panic / kill the process
-                    return;
+                    scheduler_terminate_current();
                 }
             }
             return;
@@ -184,8 +189,7 @@ void handle_page_fault(uint32_t error_code) {
         while (!pg_alloc_user_frame(pg_dir, faulting_addr)) {
             // If allocation failed, RAM is full. Evict a page.
             if (!evict_page_to_swap(pg_dir)) {
-                // TODO: kernel panic / kill the process
-                return;
+                scheduler_terminate_current();
             }
         }
     } else {
@@ -193,9 +197,9 @@ void handle_page_fault(uint32_t error_code) {
         // i.e writing to read only memory. Segfault the user process
         if (is_user && !pte->flags.user_supervisor) {
             // User mode tried to touch Ring 0 (Kernel) memory.
-            // TODO: Terminate process with SIGSEGV (Segmentation Fault).
+            scheduler_terminate_current();
         } else if (is_write && !pte->flags.read_write) {
-            // TODO: Terminate process with SIGSEGV (Segmentation Fault).
+            scheduler_terminate_current();
         }
     }
 }

@@ -33,3 +33,5 @@ root
 - Shell
 - Process
 - Round Robin Scheduler with Priority
+- Keyboard I/O wait queue
+- Process exit, getpid, and yield syscalls

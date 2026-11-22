@@ -26,6 +26,10 @@
 #define SYSCALL_PLAY_BADAPPLE 15
 #define SYSCALL_TEXT_CLEAR 16
 
+#define SYSCALL_PROCESS_EXIT 17
+#define SYSCALL_PROCESS_GETPID 18
+#define SYSCALL_PROCESS_YIELD 19
+
 /**
  * Traps into the kernel via `int 0x30` with the given service number and up
  * to three register-passed arguments (cast to uint32_t as needed - pointers,

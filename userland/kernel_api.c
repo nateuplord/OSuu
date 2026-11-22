@@ -92,3 +92,18 @@ void get_keyboard_buffer(char *buf) {
 void keyboard_state_activate(void) {
     syscall(SYSCALL_KEYBOARD_ACTIVATE, 0, 0, 0);
 }
+
+__attribute__((noreturn)) void exit_process(void) {
+    syscall(SYSCALL_PROCESS_EXIT, 0, 0, 0);
+    __builtin_unreachable();
+}
+
+uint32_t getpid(void) {
+    uint32_t pid = 0;
+    syscall(SYSCALL_PROCESS_GETPID, (uint32_t) &pid, 0, 0);
+    return pid;
+}
+
+void yield(void) {
+    syscall(SYSCALL_PROCESS_YIELD, 0, 0, 0);
+}

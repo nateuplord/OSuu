@@ -99,7 +99,10 @@ void process_save_current_context(
     }
 }
 
-int32_t process_create_user_process(struct EXT2DriverRequest request) {
+int32_t process_create_user_process(
+    struct EXT2DriverRequest request,
+    uint8_t priority
+) {
     int32_t retcode = PROCESS_CREATE_SUCCESS;
     if (process_manager_state.active_process_count >= PROCESS_COUNT_MAX) {
         retcode = PROCESS_CREATE_FAIL_MAX_PROCESS_EXCEEDED;
@@ -132,6 +135,10 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
 
     struct ProcessControlBlock *new_pcb = &(_process_list[p_index]);
     memset(new_pcb, 0, sizeof(struct ProcessControlBlock));
+
+    if (priority == 0) {
+        priority = PROCESS_PRIORITY_DEFAULT;
+    }
 
     uint32_t kernel_stack_top =
         (uint32_t) &process_kernel_stacks[p_index][PROCESS_KERNEL_STACK_SIZE];
@@ -196,6 +203,7 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
     // 7. initialize PCB metadata and manager bookkeeping
     new_pcb->metadata.pid = process_generate_new_pid();
     new_pcb->metadata.state = PROCESS_STATE_READY;
+    new_pcb->metadata.priority = priority;
 
     uint32_t copy_len = request.name_len < PROCESS_NAME_LENGTH_MAX - 1
                           ? request.name_len
@@ -209,4 +217,79 @@ int32_t process_create_user_process(struct EXT2DriverRequest request) {
 
 exit_cleanup:
     return retcode;
+}
+
+/**
+ * Free the page-table frames allocated by pg_get_table() for a process. PDE
+ * entries for the higher-half kernel and the recursive mapping are shared,
+ * so they are deliberately left alone.
+ */
+static void process_free_page_tables(struct PgDir *page_dir) {
+    const uint32_t kernel_page_table_start = KERNEL_VIRTUAL_ADDRESS_BASE >> 22;
+    for (uint32_t i = 0; i < PG_ENTRY_COUNT; ++i) {
+        // Low indices are user space. The kernel PDEs at 0x300+ and the
+        // recursive PDE at 0x3FF are shared and must not be freed.
+        if (i >= kernel_page_table_start) {
+            continue;
+        }
+        if (!page_dir->table[i].flags.present) {
+            continue;
+        }
+
+        uint32_t frame_num = ((uint32_t) page_dir->table[i].addr_high << 4) |
+                             page_dir->table[i].addr_low;
+        if (frame_num >= KERNEL_RESERVED_FRAME_COUNT &&
+            frame_num < FRAME_COUNT_MAX) {
+            pg_free_frame_num(frame_num);
+        }
+    }
+}
+
+bool process_destroy(uint32_t pid) {
+    int32_t index = -1;
+    for (uint32_t i = 0; i < PROCESS_COUNT_MAX; ++i) {
+        if (process_manager_state.is_process_active[i] &&
+            _process_list[i].metadata.pid == pid) {
+            index = (int32_t) i;
+            break;
+        }
+    }
+    if (index < 0) {
+        return false;
+    }
+
+    struct ProcessControlBlock *pcb = &_process_list[index];
+    struct PgDir *page_dir =
+        (struct PgDir *) pcb->context.page_directory_virtual_addr;
+    struct PgDir *current_page_dir = paging_get_current_page_directory_addr();
+    bool destroying_current = page_dir == current_page_dir;
+
+    if (page_dir != NULL) {
+        // pg_free_user_frame() needs its directory to be the active one.
+        if (!destroying_current) {
+            paging_use_page_directory(page_dir);
+        }
+
+        for (uint32_t i = 0; i < pcb->memory.page_frame_used_count; ++i) {
+            if (pcb->memory.virtual_addr_used[i] != NULL) {
+                pg_free_user_frame(page_dir, pcb->memory.virtual_addr_used[i]);
+            }
+        }
+        process_free_page_tables(page_dir);
+        paging_free_page_directory(page_dir);
+
+        if (destroying_current) {
+            paging_use_page_directory(&_pg_kernel_pg_dir);
+        } else {
+            paging_use_page_directory(current_page_dir);
+        }
+    }
+
+    memset(pcb, 0, sizeof(struct ProcessControlBlock));
+    process_manager_state.is_process_active[index] = false;
+    if (process_manager_state.active_process_count > 0) {
+        --process_manager_state.active_process_count;
+    }
+
+    return true;
 }

@@ -1677,7 +1677,7 @@ int shell_exit(char **args) {
         return 1;
     }
     (void)args;
-    return 0;
+    exit_process();
 }
 
 int shell_badapple(char **args) {

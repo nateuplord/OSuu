@@ -1,6 +1,7 @@
 #include "driver/keyboard.h"
 #include "cpu/interrupt.h"
 #include "cpu/portio.h"
+#include "process/scheduler.h"
 #include <stdint.h>
 
 static struct KeyboardDriverState keyboard_state;
@@ -105,6 +106,10 @@ void keyboard_isr(void) {
                     keyboard_state.keyboard_buffer = KEYBOARD_KEY_RIGHT;
                     break;
             }
+
+            if (keyboard_state.keyboard_buffer != 0) {
+                scheduler_wake_waiting(SCHEDULER_WAIT_KEYBOARD);
+            }
         }
         pic_ack(IRQ_KEYBOARD);
         return;
@@ -131,6 +136,7 @@ void keyboard_isr(void) {
 
         if (ascii_char) {
             keyboard_state.keyboard_buffer = ascii_char;
+            scheduler_wake_waiting(SCHEDULER_WAIT_KEYBOARD);
         }
     }
     pic_ack(IRQ_KEYBOARD);
