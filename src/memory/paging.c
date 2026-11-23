@@ -1,6 +1,7 @@
 #include "memory/paging.h"
 #include "process/process.h"
 #include "stdlib/string.h"
+#include "text/framebuffer.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -30,6 +31,20 @@ struct PgDir *paging_create_new_page_directory(void) {
             // from _pg_kernel_pg_dir so code, data, stack, and IDT are still mapped
             for (uint32_t k = 0; k < KERNEL_RESERVED_PAGE_TABLE_COUNT; k++) {
                 new_dir->table[0x300 + k] = _pg_kernel_pg_dir.table[0x300 + k];
+            }
+
+            // Also copy the framebuffer's MMIO mapping - framebuffer_init()
+            // only ever mapped it into whichever directory was active at
+            // boot (the kernel's own), so without this a new directory's
+            // first framebuffer access would be a not-present fault that
+            // handle_page_fault()'s generic demand-paging resolves by
+            // handing back an arbitrary RAM frame instead of real video
+            // memory: the process runs fine, but nothing it draws ever
+            // reaches the screen.
+            uint32_t fb_dir_start, fb_dir_end;
+            framebuffer_get_mmio_dir_range(&fb_dir_start, &fb_dir_end);
+            for (uint32_t d = fb_dir_start; d <= fb_dir_end; d++) {
+                new_dir->table[d] = _pg_kernel_pg_dir.table[d];
             }
 
             // set up recursive page dir entry at 0xFFC00000 pointing to new_dir phys address

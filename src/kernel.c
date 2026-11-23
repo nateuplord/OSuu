@@ -80,7 +80,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
         .buf = (uint8_t *) 0x0,
         .name = "shell",
         .parent_inode = 1,
-        .buffer_size = 4 * FRAME_SIZE, // use 0x100000 once PROCESS_PAGE_FRAME_COUNT_MAX >= 257, especially for chapter 4.3
+        .buffer_size = 0x100000,
         .name_len = 5,
         .is_directory = false,
     };

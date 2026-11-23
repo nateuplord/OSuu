@@ -16,6 +16,14 @@ static uint8_t fb_bpp;
 static uint8_t prev_cursor_row = 0xFF;
 static uint8_t prev_cursor_col = 0xFF;
 
+// putchar()/puts()'s own auto-advancing cursor - kept in sync with the
+// explicit framebuffer_set_cursor() position below, since callers (the
+// shell) track their own row/col and call framebuffer_set_cursor() after
+// every print; without this sync, putchar()/puts() would silently resume
+// from a stale position instead of where the caller actually left off.
+static uint8_t puts_row = 0;
+static uint8_t puts_col = 0;
+
 /**
  * 8x8 bitmap font, covering ASCII 0x00-0x7F.
  *
@@ -181,6 +189,19 @@ void framebuffer_init(struct VbeModeInfo *info) {
     }
 }
 
+void framebuffer_get_mmio_dir_range(
+    uint32_t *start_dir_index,
+    uint32_t *end_dir_index
+) {
+    uint32_t fb_base = (uint32_t) fb_addr & ~(FRAME_SIZE - 1);
+    uint32_t fb_bytes = fb_pitch * fb_height;
+    uint32_t fb_pages = (fb_bytes + FRAME_SIZE - 1) / FRAME_SIZE;
+    uint32_t last_addr = fb_base + (fb_pages - 1) * FRAME_SIZE;
+
+    *start_dir_index = fb_base >> 22;
+    *end_dir_index = last_addr >> 22;
+}
+
 void putpixel(
     uint16_t x,
     uint16_t y,
@@ -214,6 +235,11 @@ void framebuffer_set_cursor(
 
     prev_cursor_row = r;
     prev_cursor_col = c;
+
+    // Keep putchar()/puts()'s auto-advancing cursor in sync - see the
+    // puts_row/puts_col declaration above for why.
+    puts_row = r;
+    puts_col = c;
 }
 
 // Also referenced from the same resource, https://github.com/dhepper/font8x8/blob/master/render.c
@@ -259,12 +285,6 @@ void framebuffer_clear(void) {
         }
     }
 }
-
-// Cursor state for putchar/puts - kept separate from the (now mostly legacy,
-// ring-0 shell's) shell_printf_row/col in shell.c, since these back the
-// syscalls a ring-3 shell uses instead.
-static uint8_t puts_row = 0;
-static uint8_t puts_col = 0;
 
 void putchar(char c, uint8_t color) {
     if (c == '\n') {

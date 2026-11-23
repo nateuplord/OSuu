@@ -10,7 +10,8 @@
 #include "memory/paging.h"
 
 #define PROCESS_NAME_LENGTH_MAX 32
-#define PROCESS_PAGE_FRAME_COUNT_MAX 8
+// 256 code/data frames (1 MiB, matching linker.ld's user program size cap) + 1 stack frame
+#define PROCESS_PAGE_FRAME_COUNT_MAX 257
 #define PROCESS_COUNT_MAX 16
 
 #define KERNEL_RESERVED_PAGE_FRAME_COUNT 4
@@ -44,8 +45,6 @@
 #define PROCESS_CREATE_FAIL_INVALID_ENTRYPOINT 2
 #define PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY 3
 #define PROCESS_CREATE_FAIL_FS_READ_FAILURE 4
-
-//note: might need to increase PROCESS_PAGE_FRAME_COUNT_MAX (e.g., to 256) when loading shell as a process
 
 /**
  * Contain information needed for task to be able to get interrupted and resumed later
