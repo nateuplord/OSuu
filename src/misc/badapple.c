@@ -1,5 +1,6 @@
 #include "misc/badapple.h"
 #include "driver/keyboard.h"
+#include "driver/pcspk.h"
 #include "driver/pit.h"
 #include "fs/ext2.h"
 #include "text/framebuffer.h"
@@ -25,9 +26,15 @@
 // copies in whole blocks based on the file's block count.
 #define PALETTE_BUF_SIZE (768 * 1024)
 #define FRAME_RLE_BUF_SIZE (1920 * 1024)
+#define MUSIC_BUF_SIZE (64 * 1024)
+
+#define MUSIC_HEADER_SIZE 16u
+#define MUSIC_NOTE_SIZE 8u
+#define MUSIC_VERSION 1u
 
 static uint8_t palette_buf[PALETTE_BUF_SIZE];
 static uint8_t frame_rle_buf[FRAME_RLE_BUF_SIZE];
+static uint8_t music_buf[MUSIC_BUF_SIZE];
 
 /**
  * One grid cell's position within frame_rle_buf's temporal-RLE stream: a
@@ -35,9 +42,10 @@ static uint8_t frame_rle_buf[FRAME_RLE_BUF_SIZE];
  * frame at that screen position - see misc/uhhh.py's rle_encode_ids().
  */
 struct CellCursor {
-    uint32_t offset;     // byte offset of the NEXT run to read
-    uint32_t tile_id;    // tile id for the currently active run
-    uint8_t remaining;   // frames left in the currently active run (0 = exhausted)
+    uint32_t offset;  // byte offset of the NEXT run to read
+    uint32_t tile_id; // tile id for the currently active run
+    uint8_t
+        remaining; // frames left in the currently active run (0 = exhausted)
 };
 
 static struct CellCursor cursors[TILES_PER_FRAME];
@@ -59,6 +67,67 @@ static void blit_tile(
 static uint32_t read_u32_le(const uint8_t *p) {
     return (uint32_t) p[0] | ((uint32_t) p[1] << 8) | ((uint32_t) p[2] << 16) |
            ((uint32_t) p[3] << 24);
+}
+
+static uint16_t read_u16_le(const uint8_t *p) {
+    return (uint16_t) ((uint16_t) p[0] | ((uint16_t) p[1] << 8));
+}
+
+static uint32_t music_note_count = 0;
+static uint32_t music_note_index = 0;
+
+/**
+ * Load the optional PC-speaker score. A missing or invalid file just leaves
+ * the video silent, so the old disk image still works.
+ */
+static bool music_load(void) {
+    struct EXT2DriverRequest music_req = {
+        .buf = music_buf,
+        .name = "music.bin",
+        .name_len = 9,
+        .parent_inode = ROOT_INODE,
+        .buffer_size = MUSIC_BUF_SIZE,
+        .is_directory = false,
+    };
+    if (read(music_req) != 0) {
+        return false;
+    }
+    if (music_buf[0] != 'B' || music_buf[1] != 'A' || music_buf[2] != 'M' ||
+        music_buf[3] != 'U') {
+        return false;
+    }
+    if (read_u32_le(&music_buf[4]) != MUSIC_VERSION) {
+        return false;
+    }
+
+    uint32_t count = read_u32_le(&music_buf[8]);
+    if (count > (MUSIC_BUF_SIZE - MUSIC_HEADER_SIZE) / MUSIC_NOTE_SIZE) {
+        return false;
+    }
+    music_note_count = count;
+    music_note_index = 0;
+    return true;
+}
+
+/** Trigger every note whose start time has arrived on the video's PIT clock. */
+static void music_update(uint32_t elapsed_ticks) {
+    while (music_note_index < music_note_count) {
+        const uint8_t *note =
+            &music_buf[MUSIC_HEADER_SIZE + music_note_index * MUSIC_NOTE_SIZE];
+        uint32_t start_ticks = (read_u32_le(note) * PIT_HZ) / 1000u;
+        if (start_ticks > elapsed_ticks) {
+            break;
+        }
+
+        uint16_t frequency_hz = read_u16_le(&note[4]);
+        uint16_t duration_ms = read_u16_le(&note[6]);
+        if (frequency_hz == 0) {
+            pcspk_stop();
+        } else {
+            pcspk_tone(frequency_hz, duration_ms);
+        }
+        music_note_index++;
+    }
 }
 
 /** Pull the next run off a cell's stream once its current run is used up. */
@@ -122,6 +191,8 @@ void play_bad_apple(
         stream_pos += stream_len;
     }
 
+    bool music_loaded = music_load();
+
     framebuffer_clear();
     uint32_t start_tick = pit_get_ticks();
     bool interrupted = false;
@@ -143,9 +214,16 @@ void play_bad_apple(
             }
         }
 
+        if (music_loaded) {
+            music_update(pit_get_ticks() - start_tick);
+        }
+
         uint32_t next_frame_tick =
             start_tick + ((frame + 1) * PIT_HZ) / VIDEO_FPS;
         while (pit_get_ticks() < next_frame_tick) {
+            if (music_loaded) {
+                music_update(pit_get_ticks() - start_tick);
+            }
             char c;
             get_keyboard_buffer(&c); // non-blocking; 0 if nothing pending
             if (c) {
@@ -154,5 +232,9 @@ void play_bad_apple(
             }
             __asm__ volatile("hlt");
         }
+    }
+
+    if (music_loaded) {
+        pcspk_stop();
     }
 }

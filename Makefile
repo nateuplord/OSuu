@@ -222,7 +222,8 @@ insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) inserter insert
 	@$(INSERT_USER) snake 1 ../$(DISK_NAME).bin
 
 # badapple reads these from the root directory at runtime.
-insert-badapple: inserter misc/palette.bin misc/frames.bin
+insert-badapple: inserter misc/palette.bin misc/frames.bin misc/music.bin
 	@echo Inserting Bad Apple assets into root directory...
 	@$(INSERT_MISC) palette.bin 1 ../$(OUTPUT_FOLDER)/$(DISK_NAME).bin
 	@$(INSERT_MISC) frames.bin  1 ../$(OUTPUT_FOLDER)/$(DISK_NAME).bin
+	@$(INSERT_MISC) music.bin   1 ../$(OUTPUT_FOLDER)/$(DISK_NAME).bin
