@@ -1922,9 +1922,8 @@ int shell_badapple(char **args) {
     }
     play_bad_apple(240, 180); // centers the 160x120 video in the 640x480 screen
 
-    // play_bad_apple only touches its own centered 160x120 patch, leaving
-    // whatever shell text was already on screen around it - clear the whole
-    // screen and reset to the top-left so the next prompt starts clean.
+    // play_bad_apple clears the screen and draws its centered patch; clear
+    // again and reset the cursor so the next prompt starts clean at top-left.
     framebuffer_clear();
     shell_printf_row = 0;
     shell_printf_col = 0;

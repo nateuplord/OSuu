@@ -27,7 +27,7 @@ ASM_SRC := $(shell find $(SOURCE_FOLDER) -name '*.s')
 OBJS    := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
            $(ASM_SRC:$(SOURCE_FOLDER)/%.s=$(OUTPUT_FOLDER)/%.o)
 
-.PHONY: run clean build kernel iso disk test-sample inserter user-shell insert-shell
+.PHONY: run clean build kernel iso disk test-sample inserter user-shell insert-shell insert-badapple
 
 SAMPLE_IMAGE = .kit/ch2/sample-image.bin
 
@@ -117,6 +117,12 @@ user-shell: $(USER_BIN)
 insert-shell: $(USER_BIN) inserter
 	@echo Inserting shell into root directory...
 	@cd $(OUTPUT_FOLDER)/userprog && ../inserter -f shell 1 ../$(DISK_NAME).bin
+
+# badapple reads these from the root directory at runtime
+insert-badapple: inserter misc/palette.bin misc/frames.bin
+	@echo Inserting Bad Apple assets into root directory...
+	@cd misc && ../$(OUTPUT_FOLDER)/inserter -f palette.bin 1 ../$(OUTPUT_FOLDER)/$(DISK_NAME).bin
+	@cd misc && ../$(OUTPUT_FOLDER)/inserter -f frames.bin 1 ../$(OUTPUT_FOLDER)/$(DISK_NAME).bin
 
 
 # process debug

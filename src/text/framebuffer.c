@@ -242,6 +242,13 @@ void framebuffer_set_cursor(
     puts_col = c;
 }
 
+void framebuffer_reset_cursor(void) {
+    prev_cursor_row = 0xFF;
+    prev_cursor_col = 0xFF;
+    puts_row = 0;
+    puts_col = 0;
+}
+
 // Also referenced from the same resource, https://github.com/dhepper/font8x8/blob/master/render.c
 void framebuffer_write(
     uint8_t row,
@@ -284,19 +291,21 @@ void framebuffer_clear(void) {
             putpixel(x, y, 0);
         }
     }
+
+    // The whole surface was just overwritten, including the old caret.
+    framebuffer_reset_cursor();
 }
 
-void putchar(char c, uint8_t color) {
+void putchar(
+    char c,
+    uint8_t color
+) {
     if (c == '\n') {
         puts_row++;
         puts_col = 0;
     } else {
         framebuffer_write(
-            puts_row,
-            puts_col,
-            c,
-            color & 0x0F,
-            (color >> 4) & 0x0F
+            puts_row, puts_col, c, color & 0x0F, (color >> 4) & 0x0F
         );
         ++puts_col;
         if (puts_col >= FRAMEBUFFER_WIDTH) {
@@ -313,7 +322,11 @@ void putchar(char c, uint8_t color) {
     framebuffer_set_cursor(puts_row, puts_col);
 }
 
-void puts(const char *buf, uint32_t count, uint8_t color) {
+void puts(
+    const char *buf,
+    uint32_t count,
+    uint8_t color
+) {
     for (uint32_t i = 0; i < count; i++) {
         putchar(buf[i], color);
     }

@@ -119,6 +119,13 @@ void framebuffer_set_cursor(
 );
 
 /**
+ * Forget the previous caret and auto-advance position without drawing. Used
+ * after a full-screen clear, where the old caret's pixels were already
+ * overwritten and must not be erased a second time.
+ */
+void framebuffer_reset_cursor(void);
+
+/**
  * Set all cell in framebuffer character to:
  * - `0x00` (empty character), and
  * - `0x07` (gray character & black background)
@@ -144,7 +151,10 @@ void framebuffer_scroll_up(void);
  * @param color
  * BIOS color attribute: low nibble is foreground, high nibble is background.
  */
-void putchar(char c, uint8_t color);
+void putchar(
+    char c,
+    uint8_t color
+);
 
 /**
  * Write `count` characters starting at the current cursor position, same
@@ -160,6 +170,10 @@ void putchar(char c, uint8_t color);
  * @param color
  * BIOS color attribute: low nibble is foreground, high nibble is background.
  */
-void puts(const char *buf, uint32_t count, uint8_t color);
+void puts(
+    const char *buf,
+    uint32_t count,
+    uint8_t color
+);
 
 #endif
