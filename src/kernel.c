@@ -58,7 +58,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     gdt_install_tss();
     set_tss_register();
     pic_remap();
-    pit_init(PIT_TICK_RATE_HZ);
+    pit_init(PIT_HZ);
     cmos_init();
     scheduler_init();
     initialize_filesystem_ext2();

@@ -227,8 +227,8 @@ void syscall(struct InterruptFrame frame) {
             *(uint32_t *) frame.cpu.general.ebx = cmos_get_periodic_ticks();
             break;
 
-        case SYSCALL_TIME_TICKS_MS:
-            *(uint32_t *) frame.cpu.general.ebx = pit_get_ms();
+        case SYSCALL_PIT_TICKS:
+            *(uint32_t *) frame.cpu.general.ebx = pit_get_ticks();
             break;
 
         default:

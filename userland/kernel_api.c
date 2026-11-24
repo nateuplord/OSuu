@@ -242,10 +242,14 @@ uint32_t cmos_get_periodic_ticks(void) {
     return ticks;
 }
 
+uint32_t pit_get_ticks(void) {
+    uint32_t ticks = 0;
+    syscall(SYSCALL_PIT_TICKS, (uint32_t) &ticks, 0, 0);
+    return ticks;
+}
+
 uint32_t get_ticks_ms(void) {
-    uint32_t ms = 0;
-    syscall(SYSCALL_TIME_TICKS_MS, (uint32_t) &ms, 0, 0);
-    return ms;
+    return pit_get_ticks() * (1000u / PIT_HZ);
 }
 
 void sleep_ms(uint32_t ms) {

@@ -11,7 +11,8 @@
 #define SNAKE_BOARD_WIDTH (SNAKE_COLS * SNAKE_CELL)
 #define SNAKE_BOARD_HEIGHT (SNAKE_ROWS * SNAKE_CELL)
 #define SNAKE_MAX_LENGTH 200u
-#define SNAKE_TICKS_PER_MOVE 1u
+#define SNAKE_MOVES_PER_SECOND 10u
+#define SNAKE_MOVE_INTERVAL_TICKS (PIT_HZ / SNAKE_MOVES_PER_SECOND)
 
 #define SNAKE_DIR_UP 0u
 #define SNAKE_DIR_RIGHT 1u
@@ -386,15 +387,15 @@ int main(void) {
         snake_y[i] = center_y;
     }
 
-    snake_rng = cmos_get_periodic_ticks() ^ 0xA5A5A5A5u;
+    snake_rng = pit_get_ticks() ^ 0xA5A5A5A5u;
     snake_place_food();
     snake_redraw();
 
-    uint32_t last_tick = cmos_get_periodic_ticks();
+    uint32_t last_tick = pit_get_ticks();
     while (true) {
         snake_read_input();
-        uint32_t now = cmos_get_periodic_ticks();
-        if (now - last_tick >= SNAKE_TICKS_PER_MOVE) {
+        uint32_t now = pit_get_ticks();
+        if (now - last_tick >= SNAKE_MOVE_INTERVAL_TICKS) {
             snake_step();
             last_tick = now;
         } else {

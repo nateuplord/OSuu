@@ -8,6 +8,7 @@
  */
 
 #include "driver/cmos.h"
+#include "driver/pit.h"
 #include "fs_types.h"
 #include "gui/gui.h"
 #include "process/process_info.h"
@@ -118,9 +119,13 @@ int32_t spawn_process(
 /** CMOS/RTC wrappers - backed by int 0x30 services 25-26. */
 /** cmos_read_datetime() and cmos_get_periodic_ticks() come from driver/cmos.h. */
 
+/** PIT tick counter wrapper - backed by int 0x30 service 29. */
+/** pit_get_ticks() comes from driver/pit.h. */
+
 /**
- * Milliseconds since boot, from the PIT (service 29). 10 ms resolution;
- * wraps after ~49 days, so compare with subtraction (`now - start >= ms`).
+ * Milliseconds since boot, derived from pit_get_ticks() (PIT_HZ = 100, so
+ * 10 ms resolution). Wraps after ~49 days, so compare with subtraction
+ * (`now - start >= ms`).
  */
 uint32_t get_ticks_ms(void);
 

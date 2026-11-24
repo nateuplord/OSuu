@@ -12,6 +12,9 @@
 /// PIT's fixed input oscillator frequency, in Hz
 #define PIT_NATURAL_FREQUENCY_HZ 1193182u
 
+/// Rate programmed by pit_init() during kernel startup.
+#define PIT_HZ 100u
+
 /**
   * Command byte: channel 0, lobyte/hibyte access, mode 3 (square wave), binary.
   * @see https://wiki.osdev.org/Programmable_Interval_Timer#I.2FO_Ports
@@ -28,16 +31,6 @@
   * for the divisor to fit in 16 bits.
   */
 void pit_init(uint32_t frequency_hz);
-
-/// Tick rate the kernel programs the PIT to (kernel.c). 1000 must be
-/// divisible by it, so ticks convert to milliseconds exactly.
-#define PIT_TICK_RATE_HZ 100u
-
-/**
-  * Milliseconds since pit_init(), at PIT_TICK_RATE_HZ resolution (10 ms).
-  * Backing implementation for SYSCALL_TIME_TICKS_MS.
-  */
-uint32_t pit_get_ms(void);
 
 /**
   * Number of PIT ticks since pit_init() was called.

@@ -12,7 +12,6 @@
 #define TILES_PER_FRAME (GRID_COLS * GRID_ROWS) // 300 tiles
 
 #define VIDEO_FPS 30
-#define PIT_HZ 100
 #define ROOT_INODE 1
 
 #define COLOR_BLACK 0x00
