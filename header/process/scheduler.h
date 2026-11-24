@@ -24,6 +24,17 @@ void scheduler_init(void);
 void scheduler_register_process(struct ProcessControlBlock *pcb);
 
 /**
+ * Remove a process from all scheduler queues. Called before a PCB is destroyed
+ * so stale pointers cannot survive in the ready or wait queues.
+ */
+void scheduler_unregister_process(const struct ProcessControlBlock *pcb);
+
+/**
+ * Get the process currently owned by the scheduler, or NULL if none is running.
+ */
+struct ProcessControlBlock *scheduler_get_running_process(void);
+
+/**
  * Pop the highest-priority READY process and dispatch it. Never returns.
  */
 __attribute__((noreturn)) void scheduler_start(void);

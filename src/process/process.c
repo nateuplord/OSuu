@@ -39,13 +39,7 @@ static uint32_t process_generate_new_pid(void) {
 }
 
 struct ProcessControlBlock *process_get_current_running_pcb_pointer(void) {
-    for (uint32_t i = 0; i < PROCESS_COUNT_MAX; i++) {
-        if (process_manager_state.is_process_active[i] &&
-            _process_list[i].metadata.state == PROCESS_STATE_RUNNING) {
-            return &_process_list[i];
-        }
-    }
-    return NULL;
+    return scheduler_get_running_process();
 }
 
 void context_init(
@@ -261,6 +255,8 @@ bool process_destroy(uint32_t pid) {
     }
 
     struct ProcessControlBlock *pcb = &_process_list[index];
+    scheduler_unregister_process(pcb);
+
     struct PgDir *page_dir =
         (struct PgDir *) pcb->context.page_directory_virtual_addr;
     struct PgDir *current_page_dir = paging_get_current_page_directory_addr();

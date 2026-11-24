@@ -31,6 +31,17 @@
  */
 #define CONTEXT_INTERRUPT_FRAME_DWORD_COUNT 19
 
+/**
+ * struct InterruptFrame covers the frame up to EFLAGS. The inter-privilege
+ * ESP/SS slots live two dwords past it and are only present for ring-3
+ * interrupts, so the raw snapshot includes two extra dwords.
+ */
+_Static_assert(
+    sizeof(struct InterruptFrame) ==
+        (CONTEXT_INTERRUPT_FRAME_DWORD_COUNT - 2) * sizeof(uint32_t),
+    "InterruptFrame layout no longer matches the saved raw interrupt frame"
+);
+
 enum ContextInterruptFrameIndex {
     CONTEXT_FRAME_EDI = 0,
     CONTEXT_FRAME_ESI,

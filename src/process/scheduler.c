@@ -158,6 +158,25 @@ void scheduler_register_process(struct ProcessControlBlock *pcb) {
     }
 }
 
+void scheduler_unregister_process(const struct ProcessControlBlock *pcb) {
+    if (pcb == NULL) {
+        return;
+    }
+
+    queue_remove(&ready_queue, pcb);
+    for (uint32_t queue = 0; queue < SCHEDULER_WAIT_QUEUE_COUNT; ++queue) {
+        queue_remove(&wait_queues[queue], pcb);
+    }
+
+    if (running == pcb) {
+        running = NULL;
+    }
+}
+
+struct ProcessControlBlock *scheduler_get_running_process(void) {
+    return running;
+}
+
 __attribute__((noreturn)) void scheduler_start(void) {
     struct ProcessControlBlock *next = NULL;
     if (queue_pop(&ready_queue, &next) != 0) {
@@ -230,10 +249,7 @@ __attribute__((noreturn)) void scheduler_terminate_current(void) {
     }
 
     uint32_t pid = running->metadata.pid;
-    queue_remove(&ready_queue, running);
-    for (uint32_t queue = 0; queue < SCHEDULER_WAIT_QUEUE_COUNT; ++queue) {
-        queue_remove(&wait_queues[queue], running);
-    }
+    scheduler_unregister_process(running);
     running = NULL;
 
     // process_destroy() switches CR3 back to the kernel directory when it
