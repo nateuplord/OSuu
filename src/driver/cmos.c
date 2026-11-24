@@ -63,7 +63,7 @@ static uint8_t cmos_decode_hour(
             hour = (uint8_t) (hour + 12);
         }
     }
-    return hour;
+    return hour + 7;
 }
 
 static uint16_t cmos_decode_year(
