@@ -16,7 +16,11 @@
 #define PROCESS_PRIORITY_MAX 255u
 
 /// Kernel stack reserved for each process, used on interrupts from ring 3.
-#define PROCESS_KERNEL_STACK_SIZE 0x1000u
+/// exec/snake's call chain (syscall -> process_exec_current -> ext2 read) uses
+/// ~3.5 KiB before ISR frames, so 4 KiB left no room for a timer interrupt and
+/// intermittently corrupted the following process's stack. 8 KiB is still only
+/// 128 KiB for all PCBs.
+#define PROCESS_KERNEL_STACK_SIZE 0x2000u
 
 /**
  * Raw interrupt-frame snapshot size (in dwords), measured from the ISR's
