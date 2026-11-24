@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #define AUDIO_SILENCE_BYTE 0x80u
-#define AUDIO_VOICE_AMPLITUDE 72u
+#define AUDIO_VOICE_AMPLITUDE 48u
 #define AUDIO_WAVE_TABLE_SIZE 256u
 #define AUDIO_WAVE_TABLE_MASK 0xFFu
 #define AUDIO_WAVE_TABLE_SHIFT 24u
@@ -26,10 +26,12 @@ struct AudioVoice {
     bool active;
 };
 
-// One cycle of a 50% duty-cycle square wave, scaled to int8_t range. Linear
-// interpolation softens only the single-table-step edges, leaving the odd
-// harmonics that give the notes their retro character.
+// One cycle of a softened 50% duty-cycle square wave, scaled to int8_t range.
+// The slopes are a tanh-shaped transition over roughly 12 table steps, which
+// keeps the odd harmonics but removes the piercing high-frequency edge energy.
 static const int8_t audio_wave_table[AUDIO_WAVE_TABLE_SIZE] = {
+    0,    25,   47,   67,   83,   96,   105,  112,  116,  120,  122,  123,
+    125,  125,  126,  126,  126,  127,  127,  127,  127,  127,  127,  127,
     127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,
     127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,
     127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,
@@ -37,7 +39,10 @@ static const int8_t audio_wave_table[AUDIO_WAVE_TABLE_SIZE] = {
     127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,
     127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,
     127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,
-    127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,  127,
+    127,  127,  127,  127,  126,  126,  126,  125,  125,  123,  122,  120,
+    116,  112,  105,  96,   83,   67,   47,   25,   0,    -25,  -47,  -67,
+    -83,  -96,  -105, -112, -116, -120, -122, -123, -125, -125, -126, -126,
+    -126, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127,
     -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127,
     -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127,
     -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127,
@@ -45,7 +50,8 @@ static const int8_t audio_wave_table[AUDIO_WAVE_TABLE_SIZE] = {
     -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127,
     -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127,
     -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127,
-    -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127, -127,
+    -126, -126, -126, -125, -125, -123, -122, -120, -116, -112, -105, -96,
+    -83,  -67,  -47,  -25,
 };
 
 // Two page-aligned blocks: DMA channel 1 cannot cross a 64 KiB boundary.
