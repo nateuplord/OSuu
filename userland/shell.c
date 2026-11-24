@@ -1,4 +1,5 @@
 #include "shell.h"
+#include "clock_display.h"
 #include "fs_types.h"
 #include "kernel_api.h"
 #include <stdbool.h>
@@ -2063,6 +2064,26 @@ int shell_ps(char **args) {
     return 1;
 }
 
+static bool shell_is_clock_pid(uint32_t pid) {
+    struct ProcessInfo processes[PROCESS_COUNT_MAX];
+    uint32_t count = process_list(processes, PROCESS_COUNT_MAX);
+    for (uint32_t i = 0; i < count; i++) {
+        if (processes[i].pid == pid && streq(processes[i].name, "clock")) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void shell_clear_clock_display(void) {
+    for (
+        uint8_t col = (uint8_t) CLOCK_DISPLAY_COLUMN;
+        col < (uint8_t) (CLOCK_DISPLAY_COLUMN + CLOCK_DISPLAY_WIDTH); ++col
+    ) {
+        framebuffer_write((uint8_t) CLOCK_DISPLAY_ROW, col, ' ', 0xF, 0);
+    }
+}
+
 int shell_kill(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
         shell_printf("Usage: kill [-9] <pid>\nTerminate a process.\n");
@@ -2089,11 +2110,14 @@ int shell_kill(char **args) {
         return 1;
     }
 
+    bool was_clock = shell_is_clock_pid(pid);
     int32_t result = kill_process(pid);
     if (result != 0) {
         shell_printf("kill: ");
         shell_print_uint(pid);
         shell_printf(": No such process\n");
+    } else if (was_clock) {
+        shell_clear_clock_display();
     }
     return 1;
 }

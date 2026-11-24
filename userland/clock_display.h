@@ -1,0 +1,8 @@
+#ifndef _USER_CLOCK_DISPLAY_H
+#define _USER_CLOCK_DISPLAY_H
+
+#define CLOCK_DISPLAY_ROW 59u
+#define CLOCK_DISPLAY_COLUMN 72u
+#define CLOCK_DISPLAY_WIDTH 8u
+
+#endif
