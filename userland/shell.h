@@ -118,5 +118,7 @@ int shell_exec(char **args);
 int shell_ps(char **args);
 int shell_kill(char **args);
 int shell_clock(char **args);
+int shell_clear(char **args);
+int shell_help(char **args);
 
 #endif

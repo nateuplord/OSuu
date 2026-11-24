@@ -32,11 +32,10 @@ static struct BlockBuffer shell_find_directory_buffer;
 static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
-const char *builtin_cmd[] = {"sudo", "cd",   "ls",   "mkdir",    "cat",
-                             "grep", "cp",   "mv",   "rm",       "find",
-                             "echo", "pwd",  "exit", "badapple", "exec",
-                             "ps",   "kill", "clock"};
-
+const char *builtin_cmd[] = {"sudo", "cd",   "ls",    "mkdir",    "cat",
+                             "grep", "cp",   "mv",    "rm",       "find",
+                             "echo", "pwd",  "exit",  "badapple", "exec",
+                             "ps",   "kill", "clock", "clear",    "help"};
 int (*builtin_func[])(char **) = {
     &shell_sudo,
     &shell_cd,
@@ -55,7 +54,9 @@ int (*builtin_func[])(char **) = {
     &shell_exec,
     &shell_ps,
     &shell_kill,
-    &shell_clock
+    &shell_clock,
+    &shell_clear,
+    &shell_help
 };
 
 int streq(
@@ -2140,5 +2141,37 @@ int shell_clock(char **args) {
     shell_printf("clock: started pid ");
     shell_print_uint(pid);
     shell_printf("\n");
+    return 1;
+}
+
+int shell_clear(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf("Usage: clears the framebuffer.\n");
+        return 1;
+    }
+
+    framebuffer_clear();
+    shell_printf_row = 0;
+    shell_printf_col = 0;
+    return 1;
+}
+
+int shell_help(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf(
+            "Usage: displays a helpful command (list of commands available in "
+            "this shell).\n"
+        );
+        return 1;
+    }
+
+    shell_printf(
+        "File & Directory Management: pwd, cd, ls, mkdir, cp, mv, rm\n"
+    );
+    shell_printf("Text Processing & Search: cat, grep, find, echo\n");
+    shell_printf("Process: sudo, ps, kill, exec\n");
+    shell_printf("Terminal & Session Control: clear, exit, help\n");
+    shell_printf("Utils, Misc: badapple, clock\n");
+
     return 1;
 }
