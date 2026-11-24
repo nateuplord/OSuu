@@ -2,15 +2,15 @@
 """Convert assets/bad-apple.mid into the PC-speaker score used by badapple.
 
 The MIDI file is a dense piano roll, so the generator extracts a single lead
-line: at each 10 ms sample it takes the highest sounding pitch. Note timings
-are then stretched so the score ends with the last video frame.
+line: at each 10 ms sample it takes the highest sounding pitch. The original
+MIDI tempo is preserved; badapple paces the video to song_ms instead.
 
 Output format (all integers little-endian):
 
     magic[4]      "BAMU"
     version:u32   1
     note_count:u32
-    song_ms:u32
+    song_ms:u32   original MIDI duration, used to time the video
     notes[note_count]:
         start_ms:u32
         freq_hz:u16   (0 means silence, though the generator omits rests)
@@ -27,8 +27,6 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_MIDI = HERE.parent / "assets" / "bad-apple.mid"
 DEFAULT_OUTPUT = HERE / "music.bin"
 
-VIDEO_FRAMES = 6572
-VIDEO_FPS = 30
 SAMPLE_MS = 10
 MIN_NOTE_MS = 60
 DEFAULT_BPM = 120.0
@@ -203,44 +201,39 @@ def build_notes(division, tempo_events, note_events, max_tick, channel):
     return segments, song_ms
 
 
-def write_score(segments, song_ms, target_ms, output):
-    scale = target_ms / song_ms
+def write_score(segments, song_ms, output):
     notes = []
     for start, end, pitch in segments:
-        duration = (end - start) * scale
+        duration = end - start
         if duration < MIN_NOTE_MS:
             continue
         freq = round(440.0 * 2.0 ** ((pitch - 69) / 12.0))
-        notes.append((round(start * scale), freq, round(duration)))
+        notes.append((round(start), freq, round(duration)))
 
     with Path(output).open("wb") as out:
         out.write(b"BAMU")
-        out.write(struct.pack("<III", 1, len(notes), round(target_ms)))
+        out.write(struct.pack("<III", 1, len(notes), round(song_ms)))
         for start, freq, duration in notes:
             out.write(struct.pack("<IHH", start, freq, duration))
 
-    return notes, scale
+    return notes
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--midi", type=Path, default=DEFAULT_MIDI)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--frames", type=int, default=VIDEO_FRAMES)
-    parser.add_argument("--fps", type=int, default=VIDEO_FPS)
     parser.add_argument("--channel", type=int, default=0)
     args = parser.parse_args()
 
-    target_ms = args.frames * 1000.0 / args.fps
     division, tempo_events, note_events, max_tick = parse_midi(args.midi)
     segments, song_ms = build_notes(
         division, tempo_events, note_events, max_tick, args.channel
     )
-    notes, scale = write_score(segments, song_ms, target_ms, args.output)
+    notes = write_score(segments, song_ms, args.output)
 
     used_events = sum(1 for event in note_events if event[3] == args.channel)
     print(f"Parsed {used_events} MIDI note events, {song_ms / 1000:.2f}s")
-    print(f"Stretched by {scale:.5f}x to {target_ms / 1000:.2f}s")
     print(
         f"Wrote {args.output} with {len(notes)} notes "
         f"({args.output.stat().st_size} bytes)"

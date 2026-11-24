@@ -12,6 +12,7 @@
 #define GRID_ROWS 15
 #define TILES_PER_FRAME (GRID_COLS * GRID_ROWS) // 300 tiles
 
+// Fallback only; with music.bin present the score's song_ms sets the pace.
 #define VIDEO_FPS 30
 #define ROOT_INODE 1
 
@@ -29,6 +30,7 @@
 #define MUSIC_BUF_SIZE (64 * 1024)
 
 #define MUSIC_HEADER_SIZE 16u
+#define MUSIC_SONG_MS_OFFSET 12u
 #define MUSIC_NOTE_SIZE 8u
 #define MUSIC_VERSION 1u
 
@@ -75,6 +77,7 @@ static uint16_t read_u16_le(const uint8_t *p) {
 
 static uint32_t music_note_count = 0;
 static uint32_t music_note_index = 0;
+static uint32_t music_song_ticks = 0;
 
 /**
  * Load the optional PC-speaker score. A missing or invalid file just leaves
@@ -106,6 +109,8 @@ static bool music_load(void) {
     }
     music_note_count = count;
     music_note_index = 0;
+    music_song_ticks =
+        (read_u32_le(&music_buf[MUSIC_SONG_MS_OFFSET]) * PIT_HZ) / 1000u;
     return true;
 }
 
@@ -192,6 +197,10 @@ void play_bad_apple(
     }
 
     bool music_loaded = music_load();
+    uint32_t song_ticks = music_song_ticks;
+    if (!music_loaded || song_ticks == 0) {
+        song_ticks = ((uint32_t) num_frames * PIT_HZ) / VIDEO_FPS;
+    }
 
     framebuffer_clear();
     uint32_t start_tick = pit_get_ticks();
@@ -219,7 +228,7 @@ void play_bad_apple(
         }
 
         uint32_t next_frame_tick =
-            start_tick + ((frame + 1) * PIT_HZ) / VIDEO_FPS;
+            start_tick + ((frame + 1) * song_ticks) / num_frames;
         while (pit_get_ticks() < next_frame_tick) {
             if (music_loaded) {
                 music_update(pit_get_ticks() - start_tick);
