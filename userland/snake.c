@@ -1,4 +1,5 @@
 #include "kernel_api.h"
+#include "string.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -199,17 +200,64 @@ static void snake_place_food(void) {
     snake_food_y = 1;
 }
 
+static void snake_return_to_shell(void) {
+    char shell_name[] = "shell";
+    struct BlockBuffer directory;
+    struct EXT2Inode root_node;
+    get_node(&root_node, 1);
+    read_blocks(directory.buf, root_node.i_block[0], 1);
+
+    uint32_t shell_inode = 0;
+    uint32_t offset = get_dir_first_child_offset(directory.buf);
+    while (offset < BLOCK_SIZE) {
+        struct EXT2DirectoryEntry *entry =
+            get_directory_entry(directory.buf, offset);
+        if (entry->inode == 0 || entry->rec_len == 0 ||
+            entry->rec_len > BLOCK_SIZE - offset) {
+            break;
+        }
+        if (entry->name_len == 5 &&
+            memcmp(get_entry_name(entry), shell_name, 5) == 0) {
+            shell_inode = entry->inode;
+            break;
+        }
+        offset += entry->rec_len;
+    }
+    if (shell_inode == 0) {
+        exit_process();
+    }
+
+    struct EXT2Inode shell_node;
+    get_node(&shell_node, shell_inode);
+
+    struct EXT2DriverRequest exec_request = {
+        .buf = NULL,
+        .name = shell_name,
+        .name_len = 5,
+        .parent_inode = 1,
+        .buffer_size = shell_node.i_size,
+        .is_directory = false,
+    };
+
+    framebuffer_clear();
+    exec_process(exec_request);
+    exit_process();
+}
+
 static void snake_game_over(void) {
     gui_fill_rect(176, 192, 288, 96, SNAKE_COLOR_BORDER);
     gui_fill_rect(180, 196, 280, 88, SNAKE_COLOR_BG);
     snake_write_text(25, 33, "GAME OVER", SNAKE_COLOR_TITLE);
-    snake_write_text(27, 29, "PRESS ANY KEY", SNAKE_COLOR_TEXT);
+    snake_write_text(27, 27, "PRESS ANY KEY TO EXIT", SNAKE_COLOR_TEXT);
 
     char key = 0;
     while (key == 0) {
-        get_keyboard_buffer(&key);
+        poll_keyboard_buffer(&key);
+        if (key == 0) {
+            yield();
+        }
     }
-    exit_process();
+    snake_return_to_shell();
 }
 
 static void snake_read_input(void) {
