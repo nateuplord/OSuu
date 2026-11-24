@@ -16,6 +16,13 @@ static uint8_t fb_bpp;
 static uint8_t prev_cursor_row = 0xFF;
 static uint8_t prev_cursor_col = 0xFF;
 
+// Pixels the caret (rows 6-7 of its cell) was drawn over, restored when the
+// caret moves. Blindly painting those rows black instead would chop the
+// bottom 2px off whatever glyph sits in that cell - which is every glyph
+// putchar() prints, since it writes into the caret's cell then advances.
+#define CURSOR_TOP_ROW 6
+static uint8_t cursor_saved[8 - CURSOR_TOP_ROW][8];
+
 // putchar()/puts()'s own auto-advancing cursor - kept in sync with the
 // explicit framebuffer_set_cursor() position below, since callers (the
 // shell) track their own row/col and call framebuffer_set_cursor() after
@@ -240,20 +247,26 @@ void framebuffer_set_cursor(
     uint8_t r,
     uint8_t c
 ) {
+    volatile uint8_t *fb = fb_addr;
+
+    // Restore what the old caret covered (skipped if a glyph was written over
+    // it since - see framebuffer_write()).
     if (prev_cursor_row != 0xFF) {
         uint16_t ex = prev_cursor_col * 8;
         uint16_t ey = prev_cursor_row * 8;
-        for (uint8_t dy = 6; dy < 8; dy++) {
+        for (uint8_t dy = CURSOR_TOP_ROW; dy < 8; dy++) {
             for (uint8_t dx = 0; dx < 8; dx++) {
-                putpixel(ex + dx, ey + dy, 0);
+                putpixel(ex + dx, ey + dy, cursor_saved[dy - CURSOR_TOP_ROW][dx]);
             }
         }
     }
 
     uint16_t bx = c * 8;
     uint16_t by = r * 8;
-    for (uint8_t dy = 6; dy < 8; dy++) {
+    for (uint8_t dy = CURSOR_TOP_ROW; dy < 8; dy++) {
         for (uint8_t dx = 0; dx < 8; dx++) {
+            cursor_saved[dy - CURSOR_TOP_ROW][dx] =
+                fb[(by + dy) * fb_pitch + (bx + dx)];
             putpixel(bx + dx, by + dy, 0xF);
         }
     }
@@ -282,6 +295,14 @@ void framebuffer_write(
     uint8_t fg,
     uint8_t bg
 ) {
+    // This glyph fully repaints the caret's cell, caret included, so the
+    // saved pixels underneath are stale - drop the caret instead of letting
+    // the next set_cursor() "restore" them over the new glyph.
+    if (row == prev_cursor_row && col == prev_cursor_col) {
+        prev_cursor_row = 0xFF;
+        prev_cursor_col = 0xFF;
+    }
+
     const uint8_t *glyph = font8x8_basic[(uint8_t) c];
     uint16_t base_x = col * 8;
     uint16_t base_y = row * 8;
@@ -307,6 +328,16 @@ void framebuffer_scroll_up(void) {
     }
     for (uint32_t i = shifted_bytes; i < (uint32_t) fb_height * fb_pitch; i++) {
         fb[i] = 0;
+    }
+
+    // The caret's pixels moved up one cell along with everything else.
+    if (prev_cursor_row != 0xFF) {
+        if (prev_cursor_row == 0) {
+            prev_cursor_row = 0xFF; // scrolled off the top
+            prev_cursor_col = 0xFF;
+        } else {
+            prev_cursor_row--;
+        }
     }
 }
 
