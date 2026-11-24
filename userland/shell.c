@@ -612,30 +612,38 @@ static void shell_refresh_input_line(void) {
     uint32_t start_row = shell_printf_row;
     uint32_t start_col = shell_printf_col;
     uint32_t screen_size = FRAMEBUFFER_HEIGHT * FRAMEBUFFER_WIDTH;
-    uint32_t prompt_end_cell =
-        start_row * FRAMEBUFFER_WIDTH + start_col + prompt_length;
+
+    // shell_printf_row/col point just past the prompt, where the input starts.
+    // Recover the prompt's real start before redrawing it.
+    uint32_t input_start_cell = start_row * FRAMEBUFFER_WIDTH + start_col;
+    uint32_t prompt_start_cell = input_start_cell >= prompt_length
+                                   ? input_start_cell - prompt_length
+                                   : 0;
     uint32_t max_length = line_length > shell_input_display_length
                             ? line_length
                             : shell_input_display_length;
-    uint32_t last_cell = prompt_end_cell + max_length;
+    uint32_t last_cell = input_start_cell + max_length;
     if (last_cell >= screen_size)
         last_cell = screen_size - 1;
 
     // Clear every row the prompt or either version of the input occupied. A
     // long line wraps, so clearing just one row leaves stale characters behind.
+    uint32_t first_row = prompt_start_cell / FRAMEBUFFER_WIDTH;
     uint32_t last_row = last_cell / FRAMEBUFFER_WIDTH;
-    for (uint32_t r = start_row; r <= last_row && r < FRAMEBUFFER_HEIGHT; ++r) {
+    for (uint32_t r = first_row; r <= last_row && r < FRAMEBUFFER_HEIGHT; ++r) {
         for (uint32_t c = 0; c < FRAMEBUFFER_WIDTH; ++c) {
             framebuffer_write((uint8_t) r, (uint8_t) c, ' ', 0xF, 0);
         }
     }
 
-    // Redraw the prompt, then the whole buffer starting where the prompt ends.
-    shell_printf_row = (uint8_t) start_row;
-    shell_printf_col = (uint8_t) start_col;
+    // Redraw the prompt from its original start cell. shell_print_prompt()
+    // prints through framebuffer_puts(), which uses the kernel's auto-advance
+    // cursor, so sync that cursor to the prompt start first.
+    shell_printf_row = (uint8_t) first_row;
+    shell_printf_col = (uint8_t) (prompt_start_cell % FRAMEBUFFER_WIDTH);
+    framebuffer_set_cursor(shell_printf_row, shell_printf_col);
     shell_print_prompt();
-    uint32_t input_start_cell =
-        shell_printf_row * FRAMEBUFFER_WIDTH + shell_printf_col;
+    input_start_cell = shell_printf_row * FRAMEBUFFER_WIDTH + shell_printf_col;
     for (
         uint32_t i = 0; i < line_length && input_start_cell + i < screen_size;
         ++i
