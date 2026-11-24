@@ -1,6 +1,7 @@
 #include "driver/pit.h"
 #include "cpu/interrupt.h"
 #include "cpu/portio.h"
+#include "driver/pcspk.h"
 #include "process/scheduler.h"
 #include <stdint.h>
 
@@ -23,5 +24,6 @@ uint32_t pit_get_ticks(void) {
 void pit_isr(void) {
     pic_ack(IRQ_TIMER);
     ++pit_ticks;
+    pcspk_tick();
     scheduler_tick();
 }

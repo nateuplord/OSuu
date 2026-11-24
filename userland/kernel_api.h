@@ -135,4 +135,14 @@ uint32_t get_ticks_ms(void);
  */
 void sleep_ms(uint32_t ms);
 
+/**
+ * PC speaker helpers - backed by int 0x30 services 30-31. The tone call is
+ * nonblocking; a later call (or its duration expiring) stops the speaker.
+ */
+void audio_tone(
+    uint32_t frequency_hz,
+    uint32_t duration_ms
+);
+void audio_stop(void);
+
 #endif

@@ -65,14 +65,18 @@ QEMU      := qemu-system-i386
 QEMU_DISK := -drive file=$(OUTPUT_FOLDER)/$(DISK_NAME).bin,format=raw,if=ide,index=0,media=disk,cache=directsync
 QEMU_ISO  := -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 
+# Enable the emulated PC speaker. Override for headless runs, e.g.
+#   make run QEMU_AUDIO="-audiodev none,id=snd0 -machine pcspk-audiodev=snd0"
+QEMU_AUDIO ?= -audiodev alsa,id=snd0 -machine pcspk-audiodev=snd0
+
 run: clean build
-	@$(QEMU) -s $(QEMU_DISK) $(QEMU_ISO)
+	@$(QEMU) -s $(QEMU_DISK) $(QEMU_ISO) $(QEMU_AUDIO)
 
 test-sample: clean build
-	@$(QEMU) -s -S -drive file=$(SAMPLE_IMAGE),format=raw,if=ide,index=0,media=disk $(QEMU_ISO)
+	@$(QEMU) -s -S -drive file=$(SAMPLE_IMAGE),format=raw,if=ide,index=0,media=disk $(QEMU_ISO) $(QEMU_AUDIO)
 
 debug: clean build
-	@$(QEMU) -s -S $(QEMU_DISK) $(QEMU_ISO)
+	@$(QEMU) -s -S $(QEMU_DISK) $(QEMU_ISO) $(QEMU_AUDIO)
 
 # ============================================================
 # Build

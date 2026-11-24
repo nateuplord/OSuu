@@ -1,6 +1,7 @@
 #include "cpu/syscall.h"
 #include "driver/cmos.h"
 #include "driver/keyboard.h"
+#include "driver/pcspk.h"
 #include "driver/pit.h"
 #include "fs/ext2.h"
 #include "gui/gui.h"
@@ -229,6 +230,14 @@ void syscall(struct InterruptFrame frame) {
 
         case SYSCALL_PIT_TICKS:
             *(uint32_t *) frame.cpu.general.ebx = pit_get_ticks();
+            break;
+
+        case SYSCALL_AUDIO_TONE:
+            pcspk_tone(frame.cpu.general.ebx, frame.cpu.general.ecx);
+            break;
+
+        case SYSCALL_AUDIO_STOP:
+            pcspk_stop();
             break;
 
         default:

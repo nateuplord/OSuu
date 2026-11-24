@@ -33,11 +33,11 @@ static struct BlockBuffer shell_find_directory_buffer;
 static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
-const char *builtin_cmd[] = {"sudo",  "cd",   "ls",    "mkdir",    "cat",
-                             "grep",  "cp",   "mv",    "rm",       "find",
-                             "echo",  "pwd",  "exit",  "badapple", "exec",
-                             "ps",    "kill", "clock", "clear",    "help",
-                             "pacman"};
+const char *builtin_cmd[] = {"sudo", "cd",    "ls",    "mkdir",    "cat",
+                             "grep", "cp",    "mv",    "rm",       "find",
+                             "echo", "pwd",   "exit",  "badapple", "exec",
+                             "ps",   "kill",  "clock", "beep",     "clear",
+                             "help", "pacman"};
 int (*builtin_func[])(char **) = {
     &shell_sudo,
     &shell_cd,
@@ -57,6 +57,7 @@ int (*builtin_func[])(char **) = {
     &shell_ps,
     &shell_kill,
     &shell_clock,
+    &shell_beep,
     &shell_clear,
     &shell_help,
     &shell_pacman
@@ -2161,6 +2162,35 @@ int shell_clock(char **args) {
     return 1;
 }
 
+int shell_beep(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf(
+            "Usage: beep [frequency_hz] [duration_ms]\n"
+            "Play a PC speaker tone (defaults: 880 Hz, 120 ms).\n"
+        );
+        return 1;
+    }
+
+    uint32_t frequency = 880u;
+    uint32_t duration = 120u;
+
+    if (args != NULL && args[1] != NULL) {
+        if (!shell_parse_uint(args[1], &frequency)) {
+            shell_printf("beep: invalid frequency\n");
+            return 1;
+        }
+    }
+    if (args != NULL && args[2] != NULL) {
+        if (!shell_parse_uint(args[2], &duration)) {
+            shell_printf("beep: invalid duration\n");
+            return 1;
+        }
+    }
+
+    audio_tone(frequency, duration);
+    return 1;
+}
+
 int shell_clear(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
         shell_printf("Usage: clears the framebuffer.\n");
@@ -2188,7 +2218,7 @@ int shell_help(char **args) {
     shell_printf("Text Processing & Search: cat, grep, find, echo\n");
     shell_printf("Process: sudo, ps, kill, exec\n");
     shell_printf("Terminal & Session Control: clear, exit, help\n");
-    shell_printf("Utils, Misc: badapple, clock\n");
+    shell_printf("Utils, Misc: badapple, beep, clock\n");
 
     return 1;
 }

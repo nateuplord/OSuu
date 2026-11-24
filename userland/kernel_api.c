@@ -258,3 +258,14 @@ void sleep_ms(uint32_t ms) {
         yield();
     }
 }
+
+void audio_tone(
+    uint32_t frequency_hz,
+    uint32_t duration_ms
+) {
+    syscall(SYSCALL_AUDIO_TONE, frequency_hz, duration_ms, 0);
+}
+
+void audio_stop(void) {
+    syscall(SYSCALL_AUDIO_STOP, 0, 0, 0);
+}
