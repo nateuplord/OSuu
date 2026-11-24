@@ -16,6 +16,8 @@
 
 #define SNAKE_SOUND_START_HZ 660u
 #define SNAKE_SOUND_START_MS 80u
+#define SNAKE_SOUND_KEY_HZ 1200u
+#define SNAKE_SOUND_KEY_MS 40u
 #define SNAKE_SOUND_FOOD_HZ 880u
 #define SNAKE_SOUND_FOOD_MS 80u
 #define SNAKE_SOUND_GAME_OVER_HZ 220u
@@ -274,6 +276,11 @@ static void snake_game_over(void) {
 static void snake_read_input(void) {
     char key = 0;
     poll_keyboard_buffer(&key);
+
+    if (key == 0) {
+        return;
+    }
+    audio_tone(SNAKE_SOUND_KEY_HZ, SNAKE_SOUND_KEY_MS);
 
     if (key == 'q' || key == '\x1B') {
         snake_game_over();
