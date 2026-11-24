@@ -267,8 +267,10 @@ static bool snake_hits_self(
 static void snake_step(void) {
     snake_dir = snake_pending_dir;
 
-    uint8_t head_x = snake_x[0];
-    uint8_t head_y = snake_y[0];
+    uint8_t old_head_x = snake_x[0];
+    uint8_t old_head_y = snake_y[0];
+    uint8_t head_x = old_head_x;
+    uint8_t head_y = old_head_y;
     switch (snake_dir) {
         case SNAKE_DIR_UP:
             --head_y;
@@ -296,12 +298,6 @@ static void snake_step(void) {
     uint8_t old_tail_x = snake_x[snake_length - 1u];
     uint8_t old_tail_y = snake_y[snake_length - 1u];
 
-    if (growing) {
-        snake_x[snake_length] = old_tail_x;
-        snake_y[snake_length] = old_tail_y;
-        ++snake_length;
-    }
-
     for (uint8_t i = (uint8_t) (snake_length - 1u); i > 0; --i) {
         snake_x[i] = snake_x[i - 1u];
         snake_y[i] = snake_y[i - 1u];
@@ -310,11 +306,24 @@ static void snake_step(void) {
     snake_y[0] = head_y;
 
     if (growing) {
-        ++snake_score;
-        snake_place_food();
+        snake_x[snake_length] = old_tail_x;
+        snake_y[snake_length] = old_tail_y;
+        ++snake_length;
+    } else {
+        snake_draw_cell(old_tail_x, old_tail_y, SNAKE_COLOR_FIELD);
     }
 
-    snake_redraw();
+    // Redraw only the cells that changed this tick. Repainting the whole
+    // board every frame made the screen visibly flash between fills.
+    snake_draw_cell(old_head_x, old_head_y, SNAKE_COLOR_BODY);
+    snake_draw_head();
+
+    if (eating) {
+        ++snake_score;
+        snake_place_food();
+        snake_draw_food();
+        snake_draw_hud();
+    }
 }
 
 int main(void) {
