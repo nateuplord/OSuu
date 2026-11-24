@@ -162,6 +162,12 @@ void syscall(struct InterruptFrame frame) {
             );
             break;
 
+        case SYSCALL_PROCESS_KILL: {
+            bool killed = scheduler_terminate_pid(frame.cpu.general.ebx);
+            *(int32_t *) frame.cpu.general.ecx = killed ? 0 : 1;
+            break;
+        }
+
         default:
             break;
     }

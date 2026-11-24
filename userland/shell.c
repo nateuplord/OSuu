@@ -31,10 +31,10 @@ static struct BlockBuffer shell_find_directory_buffer;
 static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
-const char *builtin_cmd[] = {"sudo", "cd",       "ls",   "mkdir",
-                             "cat",  "grep",     "cp",   "mv",
-                             "rm",   "find",     "echo", "pwd",
-                             "exit", "badapple", "exec", "ps"};
+const char *builtin_cmd[] = {"sudo", "cd",  "ls",   "mkdir",    "cat",
+                             "grep", "cp",  "mv",   "rm",       "find",
+                             "echo", "pwd", "exit", "badapple", "exec",
+                             "ps",   "kill"};
 
 int (*builtin_func[])(char **) = {
     &shell_sudo,
@@ -52,7 +52,8 @@ int (*builtin_func[])(char **) = {
     &shell_exit,
     &shell_badapple,
     &shell_exec,
-    &shell_ps
+    &shell_ps,
+    &shell_kill
 };
 
 int streq(
@@ -502,6 +503,31 @@ static void shell_print_uint_field(
         shell_printf_write(" ", 1);
     }
     shell_printf_n(reversed, length);
+}
+
+static void shell_print_uint(uint32_t value) {
+    shell_print_uint_field(value, 0);
+}
+
+static bool shell_parse_uint(
+    const char *text,
+    uint32_t *value
+) {
+    if (text == NULL || text[0] == '\0' || value == NULL)
+        return false;
+
+    uint32_t result = 0;
+    for (uint32_t i = 0; text[i] != '\0'; i++) {
+        if (text[i] < '0' || text[i] > '9')
+            return false;
+        uint32_t digit = (uint32_t) (text[i] - '0');
+        if (result > (UINT32_MAX - digit) / 10)
+            return false;
+        result = result * 10 + digit;
+    }
+
+    *value = result;
+    return true;
 }
 
 static const char *shell_process_state_name(uint8_t state) {
@@ -2032,6 +2058,41 @@ int shell_ps(char **args) {
         shell_printf("  ");
         shell_printf(processes[i].name);
         shell_printf("\n");
+    }
+    return 1;
+}
+
+int shell_kill(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf("Usage: kill [-9] <pid>\nTerminate a process.\n");
+        return 1;
+    }
+    if (args == NULL || args[1] == NULL) {
+        shell_printf("kill: missing pid\n");
+        return 1;
+    }
+
+    const char *pid_text = args[1];
+    if (streq(pid_text, "-9")) {
+        if (args[2] == NULL) {
+            shell_printf("kill: missing pid\n");
+            return 1;
+        }
+        pid_text = args[2];
+    }
+
+    uint32_t pid;
+    if (!shell_parse_uint(pid_text, &pid)) {
+        shell_print_error("kill: ", pid_text, ": invalid pid");
+        shell_printf("\n");
+        return 1;
+    }
+
+    int32_t result = kill_process(pid);
+    if (result != 0) {
+        shell_printf("kill: ");
+        shell_print_uint(pid);
+        shell_printf(": No such process\n");
     }
     return 1;
 }

@@ -32,6 +32,7 @@
 #define SYSCALL_PROCESS_EXIT_ALL 20
 #define SYSCALL_PROCESS_EXEC 21
 #define SYSCALL_PROCESS_LIST 22
+#define SYSCALL_PROCESS_KILL 23
 
 /**
  * Traps into the kernel via `int 0x30` with the given service number and up

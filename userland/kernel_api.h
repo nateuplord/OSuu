@@ -74,7 +74,7 @@ void play_bad_apple(
 void get_keyboard_buffer(char *buf);
 void keyboard_state_activate(void);
 
-/** Process management - backed by int 0x30 services 17-22. */
+/** Process management - backed by int 0x30 services 17-23. */
 __attribute__((noreturn)) void exit_process(void);
 __attribute__((noreturn)) void exit_all_processes(void);
 uint32_t getpid(void);
@@ -89,5 +89,8 @@ uint32_t process_list(
     struct ProcessInfo *buffer,
     uint32_t capacity
 );
+
+/** Returns 0 on success, 1 when no process has that PID. */
+int32_t kill_process(uint32_t pid);
 
 #endif

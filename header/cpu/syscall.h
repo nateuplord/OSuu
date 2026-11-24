@@ -46,6 +46,7 @@
 #define SYSCALL_PROCESS_EXIT_ALL 20
 #define SYSCALL_PROCESS_EXEC 21
 #define SYSCALL_PROCESS_LIST 22
+#define SYSCALL_PROCESS_KILL 23
 
 /**
  * Dispatches a syscall based on the trapped CPU state's eax/ebx/ecx/edx.

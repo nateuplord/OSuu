@@ -116,5 +116,6 @@ int shell_exit(char **args);
 int shell_badapple(char **args);
 int shell_exec(char **args);
 int shell_ps(char **args);
+int shell_kill(char **args);
 
 #endif

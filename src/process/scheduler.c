@@ -270,6 +270,32 @@ __attribute__((noreturn)) void scheduler_terminate_current(void) {
     __builtin_unreachable();
 }
 
+bool scheduler_terminate_pid(uint32_t pid) {
+    if (running != NULL && running->metadata.pid == pid) {
+        scheduler_terminate_current();
+    }
+
+    struct ProcessControlBlock *target = NULL;
+    for (uint32_t i = 0; i < PROCESS_COUNT_MAX; ++i) {
+        if (process_manager_state.is_process_active[i] &&
+            _process_list[i].metadata.pid == pid) {
+            target = &_process_list[i];
+            break;
+        }
+    }
+    if (target == NULL) {
+        return false;
+    }
+
+    scheduler_unregister_process(target);
+    process_destroy(pid);
+
+    for (uint32_t queue = 0; queue < SCHEDULER_WAIT_QUEUE_COUNT; ++queue) {
+        wake_all_waiting(queue);
+    }
+    return true;
+}
+
 __attribute__((noreturn)) void scheduler_terminate_all(void) {
     while (process_manager_state.active_process_count > 0) {
         int32_t index = -1;

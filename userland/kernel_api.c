@@ -158,3 +158,9 @@ uint32_t process_list(
     );
     return count;
 }
+
+int32_t kill_process(uint32_t pid) {
+    int32_t result = 1;
+    syscall(SYSCALL_PROCESS_KILL, pid, (uint32_t) &result, 0);
+    return result;
+}

@@ -78,4 +78,13 @@ __attribute__((noreturn)) void scheduler_terminate_current(void);
  */
 __attribute__((noreturn)) void scheduler_terminate_all(void);
 
+/**
+ * Terminate a process by PID. If the PID belongs to the running process this
+ * never returns; otherwise the caller continues and the target is unlinked
+ * from all queues and destroyed.
+ *
+ * @return true if a matching active process was found and destroyed.
+ */
+bool scheduler_terminate_pid(uint32_t pid);
+
 #endif
