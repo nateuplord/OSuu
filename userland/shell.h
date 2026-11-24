@@ -35,27 +35,69 @@ typedef struct {
     uint16_t length;
 } History;
 
-int streq(const char str1[], const char str2[]);
-int str_len(const char *str);
-void strcopy(const char src[], char dest[]);
-void strcopy_len(const char src[], char dest[], int len);
-int str_split(const char *string, char **parts, char keychar, int max_parts);
-int resolve_path_string(
-    const char *path, char layers[][SHELL_PATH_SEGMENT_MAX]
+int streq(
+    const char str1[],
+    const char str2[]
 );
-int dir_file_split(const char *path, char *dir, char *name);
-int8_t resolve_path(uint32_t start_inode, const char *path, uint32_t *resolved_inode);
+int str_len(const char *str);
+void strcopy(
+    const char src[],
+    char dest[]
+);
+void strcopy_len(
+    const char src[],
+    char dest[],
+    int len
+);
+int str_split(
+    const char *string,
+    char **parts,
+    char keychar,
+    int max_parts
+);
+int resolve_path_string(
+    const char *path,
+    char layers[][SHELL_PATH_SEGMENT_MAX]
+);
+int dir_file_split(
+    const char *path,
+    char *dir,
+    char *name
+);
+int8_t resolve_path(
+    uint32_t start_inode,
+    const char *path,
+    uint32_t *resolved_inode
+);
 
 void start_shell(void);
-void shell_get_cursor_position(uint8_t *row, uint8_t *col);
-void shell_cursor_left(uint8_t *row, uint8_t *col);
-void shell_cursor_right(uint8_t *row, uint8_t *col);
-void shell_history_up(uint8_t *row, uint8_t *col);
-void shell_history_down(uint8_t *row, uint8_t *col);
+void shell_get_cursor_position(
+    uint8_t *row,
+    uint8_t *col
+);
+void shell_cursor_left(
+    uint8_t *row,
+    uint8_t *col
+);
+void shell_cursor_right(
+    uint8_t *row,
+    uint8_t *col
+);
+void shell_history_up(
+    uint8_t *row,
+    uint8_t *col
+);
+void shell_history_down(
+    uint8_t *row,
+    uint8_t *col
+);
 void add_char(char c);
 void remove_char(void);
 int shell_execute(char **args);
-int shell_split_line(char *line, char **args);
+int shell_split_line(
+    char *line,
+    char **args
+);
 int enter_command(void);
 
 int shell_sudo(char **args);
@@ -72,5 +114,6 @@ int shell_echo(char **args);
 int shell_pwd(char **args);
 int shell_exit(char **args);
 int shell_badapple(char **args);
+int shell_exec(char **args);
 
 #endif

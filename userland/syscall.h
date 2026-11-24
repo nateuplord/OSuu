@@ -30,6 +30,7 @@
 #define SYSCALL_PROCESS_GETPID 18
 #define SYSCALL_PROCESS_YIELD 19
 #define SYSCALL_PROCESS_EXIT_ALL 20
+#define SYSCALL_PROCESS_EXEC 21
 
 /**
  * Traps into the kernel via `int 0x30` with the given service number and up
@@ -52,10 +53,18 @@ static inline void syscall(
     uint32_t ecx,
     uint32_t edx
 ) {
-    __asm__ volatile("mov %0, %%ebx" : /* <Empty> */ : "r"(ebx));
-    __asm__ volatile("mov %0, %%ecx" : /* <Empty> */ : "r"(ecx));
-    __asm__ volatile("mov %0, %%edx" : /* <Empty> */ : "r"(edx));
-    __asm__ volatile("mov %0, %%eax" : /* <Empty> */ : "r"(eax));
+    __asm__ volatile("mov %0, %%ebx"
+                     : /* <Empty> */
+                     : "r"(ebx));
+    __asm__ volatile("mov %0, %%ecx"
+                     : /* <Empty> */
+                     : "r"(ecx));
+    __asm__ volatile("mov %0, %%edx"
+                     : /* <Empty> */
+                     : "r"(edx));
+    __asm__ volatile("mov %0, %%eax"
+                     : /* <Empty> */
+                     : "r"(eax));
     __asm__ volatile("int $0x30");
 }
 

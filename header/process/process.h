@@ -8,11 +8,10 @@
 #include "cpu/interrupt.h"
 #include "fs/ext2.h"
 #include "memory/paging.h"
+#include "process/process_info.h"
 
-#define PROCESS_NAME_LENGTH_MAX 32
 // 256 code/data frames (1 MiB, matching linker.ld's user program size cap) + 1 stack frame
 #define PROCESS_PAGE_FRAME_COUNT_MAX 257
-#define PROCESS_COUNT_MAX 16
 #define PROCESS_PRIORITY_DEFAULT 1u
 #define PROCESS_PRIORITY_MAX 255u
 
@@ -123,13 +122,6 @@ struct Context {
     uint32_t kernel_stack_top;
 };
 
-typedef enum PROCESS_STATE {
-    PROCESS_STATE_INACTIVE,
-    PROCESS_STATE_READY,
-    PROCESS_STATE_RUNNING,
-    PROCESS_STATE_BLOCKED,
-} PROCESS_STATE;
-
 /**
  * Structure data containing information about a process
  *
@@ -232,6 +224,14 @@ int32_t process_create_user_process(
     struct EXT2DriverRequest request,
     uint8_t priority
 );
+
+/**
+ * Replace the running process's image with `request`, preserving its PID,
+ * priority and kernel stack. On success this never returns - it iret's into
+ * the new image. On failure the old image is left untouched and an error code
+ * is returned.
+ */
+int32_t process_exec_current(struct EXT2DriverRequest request);
 
 /**
  * Destroy process then release page directory and process control block

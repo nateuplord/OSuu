@@ -30,7 +30,7 @@ void syscall(struct InterruptFrame frame) {
         case SYSCALL_FS_DELETE:
             // delete() takes its request by value, same as read().
             *(int8_t *) frame.cpu.general.ecx =
-                delete (*(struct EXT2DriverRequest *) frame.cpu.general.ebx);
+                delete(*(struct EXT2DriverRequest *) frame.cpu.general.ebx);
             break;
 
         case SYSCALL_KEYBOARD_GETCHAR: {
@@ -54,8 +54,7 @@ void syscall(struct InterruptFrame frame) {
 
         case SYSCALL_TEXT_PUTS:
             puts(
-                (const char *) frame.cpu.general.ebx,
-                frame.cpu.general.ecx,
+                (const char *) frame.cpu.general.ebx, frame.cpu.general.ecx,
                 (uint8_t) frame.cpu.general.edx
             );
             break;
@@ -80,16 +79,14 @@ void syscall(struct InterruptFrame frame) {
 
         case SYSCALL_FS_READ_BLOCKS:
             read_blocks(
-                (void *) frame.cpu.general.ebx,
-                frame.cpu.general.ecx,
+                (void *) frame.cpu.general.ebx, frame.cpu.general.ecx,
                 (uint8_t) frame.cpu.general.edx
             );
             break;
 
         case SYSCALL_FS_WRITE_BLOCKS:
             write_blocks(
-                (const void *) frame.cpu.general.ebx,
-                frame.cpu.general.ecx,
+                (const void *) frame.cpu.general.ebx, frame.cpu.general.ecx,
                 (uint8_t) frame.cpu.general.edx
             );
             break;
@@ -99,10 +96,8 @@ void syscall(struct InterruptFrame frame) {
             // here rather than spending a 4th register on fg/bg.
             framebuffer_write(
                 (uint8_t) frame.cpu.general.ebx,
-                (uint8_t) frame.cpu.general.ecx,
-                (char) frame.cpu.general.edx,
-                0xF,
-                0
+                (uint8_t) frame.cpu.general.ecx, (char) frame.cpu.general.edx,
+                0xF, 0
             );
             break;
 
@@ -149,6 +144,16 @@ void syscall(struct InterruptFrame frame) {
         case SYSCALL_PROCESS_EXIT_ALL:
             scheduler_terminate_all();
             break;
+
+        case SYSCALL_PROCESS_EXEC: {
+            // On success process_exec_current() iret's into the new image and
+            // never reaches the status write.
+            int32_t result = process_exec_current(
+                *(struct EXT2DriverRequest *) frame.cpu.general.ebx
+            );
+            *(int32_t *) frame.cpu.general.ecx = result;
+            break;
+        }
 
         default:
             break;

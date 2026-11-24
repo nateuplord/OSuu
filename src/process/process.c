@@ -241,6 +241,130 @@ static void process_free_page_tables(struct PgDir *page_dir) {
     }
 }
 
+/**
+ * Free every user frame recorded for `dir`. pg_free_user_frame() requires the
+ * directory to be active, so switch to it first and leave `restore_dir` active
+ * on return.
+ */
+static void process_free_image_frames(
+    struct PgDir *dir,
+    struct PgDir *restore_dir,
+    void **frames,
+    uint32_t count
+) {
+    paging_use_page_directory(dir);
+    for (uint32_t i = 0; i < count; ++i) {
+        if (frames[i] != NULL) {
+            pg_free_user_frame(dir, frames[i]);
+        }
+    }
+    paging_use_page_directory(restore_dir);
+}
+
+int32_t process_exec_current(struct EXT2DriverRequest request) {
+    struct ProcessControlBlock *pcb = process_get_current_running_pcb_pointer();
+    if (pcb == NULL) {
+        return PROCESS_CREATE_FAIL_MAX_PROCESS_EXCEEDED;
+    }
+
+    // request.buf is the legacy caller-side scratch buffer; the new image is
+    // always loaded at virtual 0x0. Keep the same guard as process creation.
+    if ((uint32_t) request.buf >= KERNEL_VIRTUAL_ADDRESS_BASE) {
+        return PROCESS_CREATE_FAIL_INVALID_ENTRYPOINT;
+    }
+
+    uint32_t page_frame_count_needed =
+        ceil_div(request.buffer_size + FRAME_SIZE, FRAME_SIZE);
+    if (!pg_check_alloc(page_frame_count_needed) ||
+        page_frame_count_needed > PROCESS_PAGE_FRAME_COUNT_MAX) {
+        return PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
+    }
+
+    // request.name points into the caller's address space. Copy it while that
+    // space is still active, before any CR3 switch or teardown.
+    char kernel_name[UINT8_MAX + 1];
+    uint32_t name_len = request.name_len;
+    memcpy(kernel_name, request.name, name_len);
+    kernel_name[name_len] = '\0';
+    request.name = kernel_name;
+
+    struct PgDir *old_dir =
+        (struct PgDir *) pcb->context.page_directory_virtual_addr;
+    struct PgDir *new_dir = paging_create_new_page_directory();
+    if (new_dir == NULL) {
+        return PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
+    }
+
+    void *new_frames[PROCESS_PAGE_FRAME_COUNT_MAX] = {0};
+    uint32_t mapped_count = 0;
+    int32_t retcode = PROCESS_CREATE_SUCCESS;
+
+    paging_use_page_directory(new_dir);
+
+    uint32_t code_page_count = page_frame_count_needed - 1;
+    for (uint32_t i = 0; i < code_page_count; i++) {
+        void *virt_addr = (void *) (i * FRAME_SIZE);
+        if (!pg_alloc_user_frame(new_dir, virt_addr)) {
+            retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
+            paging_use_page_directory(old_dir);
+            goto cleanup_new_image;
+        }
+        new_frames[mapped_count++] = virt_addr;
+    }
+
+    void *user_stack_virt_addr =
+        (void *) (KERNEL_VIRTUAL_ADDRESS_BASE - FRAME_SIZE);
+    if (!pg_alloc_user_frame(new_dir, user_stack_virt_addr)) {
+        retcode = PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY;
+        paging_use_page_directory(old_dir);
+        goto cleanup_new_image;
+    }
+    new_frames[mapped_count++] = user_stack_virt_addr;
+
+    request.buf = (void *) 0x00000000;
+    request.is_directory = false;
+    int8_t fs_read_status = read(request);
+    paging_use_page_directory(old_dir);
+    if (fs_read_status != 0) {
+        retcode = PROCESS_CREATE_FAIL_FS_READ_FAILURE;
+        goto cleanup_new_image;
+    }
+
+    // The new image is fully loaded. Only now is it safe to destroy the old
+    // one; failures above return to the still-intact caller.
+    process_free_image_frames(
+        old_dir, new_dir, pcb->memory.virtual_addr_used,
+        pcb->memory.page_frame_used_count
+    );
+    process_free_page_tables(old_dir);
+    paging_free_page_directory(old_dir);
+
+    memcpy(
+        pcb->memory.virtual_addr_used, new_frames,
+        mapped_count * sizeof(new_frames[0])
+    );
+    pcb->memory.page_frame_used_count = mapped_count;
+
+    uint32_t copy_len = name_len < PROCESS_NAME_LENGTH_MAX - 1
+                          ? name_len
+                          : PROCESS_NAME_LENGTH_MAX - 1;
+    memcpy(pcb->metadata.name, kernel_name, copy_len);
+    pcb->metadata.name[copy_len] = '\0';
+
+    uint32_t kernel_stack_top = pcb->context.kernel_stack_top;
+    context_init(&pcb->context, 0, (uint32_t) new_dir, kernel_stack_top);
+    process_interrupt_frame_valid = false;
+    set_tss_kernel_stack(kernel_stack_top);
+    context_restore(kernel_stack_top, pcb->context.interrupt_frame);
+    __builtin_unreachable();
+
+cleanup_new_image:
+    process_free_image_frames(new_dir, old_dir, new_frames, mapped_count);
+    process_free_page_tables(new_dir);
+    paging_free_page_directory(new_dir);
+    return retcode;
+}
+
 bool process_destroy(uint32_t pid) {
     int32_t index = -1;
     for (uint32_t i = 0; i < PROCESS_COUNT_MAX; ++i) {

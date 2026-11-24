@@ -31,9 +31,9 @@ static struct BlockBuffer shell_find_directory_buffer;
 static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
-const char *builtin_cmd[] = {"sudo", "cd",  "ls",   "mkdir",   "cat",
-                             "grep", "cp",  "mv",   "rm",      "find",
-                             "echo", "pwd", "exit", "badapple"};
+const char *builtin_cmd[] = {"sudo", "cd",  "ls",   "mkdir",    "cat",
+                             "grep", "cp",  "mv",   "rm",       "find",
+                             "echo", "pwd", "exit", "badapple", "exec"};
 
 int (*builtin_func[])(char **) = {
     &shell_sudo,
@@ -49,7 +49,8 @@ int (*builtin_func[])(char **) = {
     &shell_echo,
     &shell_pwd,
     &shell_exit,
-    &shell_badapple
+    &shell_badapple,
+    &shell_exec
 };
 
 int streq(
@@ -1927,5 +1928,46 @@ int shell_badapple(char **args) {
     framebuffer_clear();
     shell_printf_row = 0;
     shell_printf_col = 0;
+    return 1;
+}
+
+int shell_exec(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf(
+            "Usage: exec <program>\nReplace the shell with <program>.\n"
+        );
+        return 1;
+    }
+    if (args == NULL || args[1] == NULL) {
+        shell_printf("exec: missing program\n");
+        return 1;
+    }
+
+    struct ShellFilePath file;
+    int result = resolve_shell_file(args[1], &file);
+    if (result != 0) {
+        print_path_error("exec: ", args[1], result);
+        return 1;
+    }
+    if (file.is_directory) {
+        shell_print_error("exec: ", args[1], ": Is a directory");
+        shell_printf("\n");
+        return 1;
+    }
+
+    struct EXT2DriverRequest request = {
+        .buf = NULL,
+        .name = (char *) file.name,
+        .name_len = (uint8_t) str_len(file.name),
+        .parent_inode = file.parent_inode,
+        .buffer_size = file.size,
+        .is_directory = false
+    };
+
+    int32_t status = exec_process(request);
+    if (status != 0) {
+        shell_print_error("exec: ", args[1], ": Unable to execute program");
+        shell_printf("\n");
+    }
     return 1;
 }
