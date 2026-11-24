@@ -831,30 +831,41 @@ struct EXT2DirectoryEntry *find_insert_slot(
     struct BlockBuffer *parent_buf,
     uint8_t new_name_len
 ) {
+    // First-fit over the whole block. delete() merges a removed entry's space
+    // into the *previous* entry's rec_len, so free space ends up in the middle
+    // of the block, not just after the last entry - checking only the tail
+    // made write() fail with -1 after a delete/re-insert (e.g. inserter -f)
+    // even with plenty of room left in the block.
     uint16_t needed = get_entry_record_len(new_name_len);
-    uint16_t offset = 0;
-    struct EXT2DirectoryEntry *entry = get_directory_entry(parent_buf, 0);
+    uint32_t offset = 0;
 
-    while (offset + entry->rec_len < BLOCK_SIZE) {
-        if (entry->rec_len == 0) {
-            return NULL;
+    while (offset < BLOCK_SIZE) {
+        struct EXT2DirectoryEntry *entry =
+            get_directory_entry(parent_buf, offset);
+
+        if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset) {
+            return NULL; // corrupt chain - don't make it worse
         }
+
+        // Unused entry (inode 0) big enough: take it over whole.
+        if (entry->inode == 0 && entry->rec_len >= needed) {
+            return entry;
+        }
+
+        // Live entry with enough slack after its own record: split it.
+        uint16_t minimal = get_entry_record_len(entry->name_len);
+        if (entry->inode != 0 && entry->rec_len >= minimal + needed) {
+            struct EXT2DirectoryEntry *new_entry =
+                get_directory_entry(entry, minimal);
+            new_entry->rec_len = entry->rec_len - minimal;
+            entry->rec_len = minimal;
+            return new_entry;
+        }
+
         offset += entry->rec_len;
-        entry = get_next_directory_entry(entry);
     }
 
-    uint16_t minimal = get_entry_record_len(entry->name_len);
-    uint16_t slack = entry->rec_len - minimal;
-
-    if (slack < needed) {
-        return NULL;
-    }
-
-    struct EXT2DirectoryEntry *new_entry = get_directory_entry(entry, minimal);
-    new_entry->rec_len = slack;
-    entry->rec_len = minimal;
-
-    return new_entry;
+    return NULL;
 }
 
 int8_t write(struct EXT2DriverRequest *request) {
