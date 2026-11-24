@@ -344,8 +344,10 @@ static bool snake_hits_self(
     uint8_t y,
     bool growing
 ) {
-    uint8_t start = growing ? 0 : (uint8_t) (snake_length - 1u);
-    for (uint8_t i = start; i < snake_length; ++i) {
+    // The tail vacates its cell on a normal move, so ignore it then. When
+    // eating, the tail stays put, so the whole snake must be checked.
+    uint8_t checked = growing ? snake_length : (uint8_t) (snake_length - 1u);
+    for (uint8_t i = 0; i < checked; ++i) {
         if (snake_x[i] == x && snake_y[i] == y) {
             return true;
         }
