@@ -9,8 +9,8 @@
 /// SB16 playback format: 8-bit unsigned mono.
 #define AUDIO_SAMPLE_RATE_HZ 22050u
 
-/// Samples per DMA block; two blocks are kept in flight. Small blocks keep the
-/// delay between audio_tone() and audible output under ~12 ms.
+/// Samples per DMA block; two blocks are kept in flight. Smaller blocks reduce
+/// note-start latency, but 128 samples underruns QEMU's SB16; 256 is stable.
 #define AUDIO_BLOCK_SAMPLES 256u
 
 /**

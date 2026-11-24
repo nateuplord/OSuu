@@ -6,12 +6,15 @@
 #include <stdint.h>
 
 #define AUDIO_SILENCE_BYTE 0x80u
-#define AUDIO_VOICE_AMPLITUDE 112u
+#define AUDIO_VOICE_AMPLITUDE 72u
 #define AUDIO_WAVE_TABLE_SIZE 256u
+#define AUDIO_WAVE_TABLE_MASK 0xFFu
 #define AUDIO_WAVE_TABLE_SHIFT 24u
+#define AUDIO_WAVE_FRACTION_SHIFT 16u
+#define AUDIO_WAVE_FRACTION_MASK 0xFFu
 #define AUDIO_PHASE_SCALE 65536u
-#define AUDIO_ATTACK_SAMPLES ((AUDIO_SAMPLE_RATE_HZ * 4u) / 1000u)
-#define AUDIO_RELEASE_SAMPLES ((AUDIO_SAMPLE_RATE_HZ * 12u) / 1000u)
+#define AUDIO_ATTACK_SAMPLES ((AUDIO_SAMPLE_RATE_HZ * 2u) / 1000u)
+#define AUDIO_RELEASE_SAMPLES ((AUDIO_SAMPLE_RATE_HZ * 10u) / 1000u)
 #define AUDIO_MAX_DURATION_MS 60000u
 
 struct AudioVoice {
@@ -96,7 +99,7 @@ void audio_render_block(
 ) {
     for (uint32_t sample = 0; sample < sample_count; sample++) {
         int32_t mix = 0;
-        uint32_t voice_count = 0;
+        uint32_t amplitude_sum = 0;
 
         for (uint32_t i = 0; i < AUDIO_MAX_VOICES; i++) {
             struct AudioVoice *voice = &audio_voices[i];
@@ -114,10 +117,21 @@ void audio_render_block(
                             AUDIO_RELEASE_SAMPLES;
             }
 
-            int32_t wave =
-                audio_wave_table[voice->phase >> AUDIO_WAVE_TABLE_SHIFT];
-            mix += (wave * (int32_t) amplitude) / 127;
-            voice_count++;
+            if (amplitude != 0) {
+                uint32_t table_index = voice->phase >> AUDIO_WAVE_TABLE_SHIFT;
+                uint32_t fraction =
+                    (voice->phase >> AUDIO_WAVE_FRACTION_SHIFT) &
+                    AUDIO_WAVE_FRACTION_MASK;
+                int32_t current = audio_wave_table[table_index];
+                int32_t next =
+                    audio_wave_table[(table_index + 1) & AUDIO_WAVE_TABLE_MASK];
+                // Linear interpolation removes the phase-quantization steps of
+                // a plain 256-entry table lookup.
+                int32_t wave =
+                    current + ((next - current) * (int32_t) fraction) / 256;
+                mix += (wave * (int32_t) amplitude) / 127;
+                amplitude_sum += amplitude;
+            }
 
             voice->phase += voice->phase_step;
             voice->age_samples++;
@@ -127,7 +141,12 @@ void audio_render_block(
             }
         }
 
-        int32_t centered = voice_count == 0 ? 0 : mix / (int32_t) voice_count;
+        // Normalize by the smoothed amplitude sum, not the voice count. A
+        // starting or ending voice then cannot make every other voice jump.
+        int32_t centered = amplitude_sum == 0
+                             ? 0
+                             : (mix * (int32_t) AUDIO_VOICE_AMPLITUDE) /
+                                   (int32_t) amplitude_sum;
         if (centered < -128) {
             centered = -128;
         }
