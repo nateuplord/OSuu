@@ -98,6 +98,11 @@ __attribute__((noreturn)) void exit_process(void) {
     __builtin_unreachable();
 }
 
+__attribute__((noreturn)) void exit_all_processes(void) {
+    syscall(SYSCALL_PROCESS_EXIT_ALL, 0, 0, 0);
+    __builtin_unreachable();
+}
+
 uint32_t getpid(void) {
     uint32_t pid = 0;
     syscall(SYSCALL_PROCESS_GETPID, (uint32_t) &pid, 0, 0);

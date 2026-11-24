@@ -31,6 +31,26 @@
 void framebuffer_init(struct VbeModeInfo *info);
 
 /**
+ * Report which page directory entries framebuffer_init() mapped the linear
+ * framebuffer's MMIO into, so a freshly created process page directory can
+ * copy them too - otherwise the framebuffer is only reachable from whichever
+ * directory was active when framebuffer_init() ran (the kernel's own), and
+ * any other directory's first touch gets silently demand-paged to an
+ * arbitrary RAM frame instead of real video memory.
+ *
+ * @param start_dir_index
+ * Lowest page directory index the framebuffer occupies
+ *
+ * @param end_dir_index
+ * Highest page directory index the framebuffer occupies (inclusive; equal
+ * to start_dir_index unless the framebuffer straddles a 4 MiB boundary)
+ */
+void framebuffer_get_mmio_dir_range(
+    uint32_t *start_dir_index,
+    uint32_t *end_dir_index
+);
+
+/**
  * Set a single pixel's color in the linear graphics framebuffer.
  *
  * @details

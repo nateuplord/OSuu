@@ -30,24 +30,11 @@ static struct BlockBuffer shell_find_directory_buffer;
 static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
-const char *builtin_cmd[] = {
-    "sudo",
-    "cd",
-    "ls",
-    "mkdir",
-    "cat",
-    "grep",
-    "cp",
-    "mv",
-    "rm",
-    "find",
-    "echo",
-    "pwd",
-    "exit",
-    "badapple"
-};
+const char *builtin_cmd[] = {"sudo", "cd",  "ls",   "mkdir",   "cat",
+                             "grep", "cp",  "mv",   "rm",      "find",
+                             "echo", "pwd", "exit", "badapple"};
 
-int (*builtin_func[]) (char **) = {
+int (*builtin_func[])(char **) = {
     &shell_sudo,
     &shell_cd,
     &shell_ls,
@@ -64,19 +51,27 @@ int (*builtin_func[]) (char **) = {
     &shell_badapple
 };
 
-int streq(const char str1[], const char str2[]) {
+int streq(
+    const char str1[],
+    const char str2[]
+) {
     int i = 0;
-    while (str1[i] != '\0' && str1[i] == str2[i]) i++;
+    while (str1[i] != '\0' && str1[i] == str2[i])
+        i++;
     return str1[i] == str2[i];
 }
 
 int str_len(const char *str) {
     int len = 0;
-    while (str[len] != '\0') len++;
+    while (str[len] != '\0')
+        len++;
     return len;
 }
 
-void strcopy(const char src[], char dest[]) {
+void strcopy(
+    const char src[],
+    char dest[]
+) {
     int len = str_len(src), i;
     for (i = 0; i < len; i++) {
         dest[i] = src[i];
@@ -84,25 +79,34 @@ void strcopy(const char src[], char dest[]) {
     dest[i] = '\0';
 }
 
-void strcopy_len(const char src[], char dest[], int len) {
+void strcopy_len(
+    const char src[],
+    char dest[],
+    int len
+) {
     int i = 0;
-    for (i=0; i<len; i++) {
+    for (i = 0; i < len; i++) {
         dest[i] = src[i];
     }
     dest[i] = '\0';
 }
 
-int str_split(const char *string, char **parts, char keychar, int max_parts) {
-    if (string == NULL  || parts == NULL || max_parts <= 0) return -1;
+int str_split(
+    const char *string,
+    char **parts,
+    char keychar,
+    int max_parts
+) {
+    if (string == NULL || parts == NULL || max_parts <= 0)
+        return -1;
     int i, amount = 0, start = 0, len = 0;
-    for (i=0; string[i] != '\0' && amount < max_parts; i++) {
+    for (i = 0; string[i] != '\0' && amount < max_parts; i++) {
         if (string[i] == keychar) {
             strcopy_len(&(string[start]), parts[amount], len);
             amount++;
-            start = i+1;
+            start = i + 1;
             len = 0;
-        }
-        else {
+        } else {
             len++;
         }
     }
@@ -111,14 +115,17 @@ int str_split(const char *string, char **parts, char keychar, int max_parts) {
         amount++;
         parts[amount] = NULL;
         return amount;
-    }
-    else {
+    } else {
         return -1;
     }
 }
 
-int resolve_path_string(const char *path, char layers[][SHELL_PATH_SEGMENT_MAX]) {
-    if (path == NULL || layers == NULL) return -1;
+int resolve_path_string(
+    const char *path,
+    char layers[][SHELL_PATH_SEGMENT_MAX]
+) {
+    if (path == NULL || layers == NULL)
+        return -1;
 
     char *layer_ptrs[SHELL_PATH_DEPTH_MAX];
     for (int i = 0; i < SHELL_PATH_DEPTH_MAX; i++) {
@@ -128,26 +135,31 @@ int resolve_path_string(const char *path, char layers[][SHELL_PATH_SEGMENT_MAX])
     if (path[0] == '/') {
         layers[0][0] = '/';
         layers[0][1] = '\0';
-        int result = str_split(path, &layer_ptrs[1], '/', SHELL_PATH_DEPTH_MAX-1);
+        int result =
+            str_split(path, &layer_ptrs[1], '/', SHELL_PATH_DEPTH_MAX - 1);
         if (result == -1) {
             return -1;
-        }
-        else {
+        } else {
             return 1 + result;
         }
-    }
-    else {
+    } else {
         return str_split(path, layer_ptrs, '/', SHELL_PATH_DEPTH_MAX);
     }
 }
 
-int dir_file_split(const char *path, char *dir, char *name) {
-    if (path == NULL || dir == NULL || name == NULL) return -1;
+int dir_file_split(
+    const char *path,
+    char *dir,
+    char *name
+) {
+    if (path == NULL || dir == NULL || name == NULL)
+        return -1;
     char layers[SHELL_PATH_DEPTH_MAX][SHELL_PATH_SEGMENT_MAX];
     int depth = resolve_path_string(path, layers);
-    if (depth == -1) return -1;
-    strcopy(layers[depth-1], name);
-    strcopy_len(path, dir, str_len(path)-str_len(name));
+    if (depth == -1)
+        return -1;
+    strcopy(layers[depth - 1], name);
+    strcopy_len(path, dir, str_len(path) - str_len(name));
     return 0;
 }
 
@@ -155,14 +167,16 @@ static bool shell_directory_entries_valid(uint32_t inode) {
     struct EXT2Inode directory;
     struct BlockBuffer directory_buf;
     get_node(&directory, inode);
-    if ((directory.i_mode & EXT2_S_IFDIR) == 0) return true;
+    if ((directory.i_mode & EXT2_S_IFDIR) == 0)
+        return true;
 
     read_blocks(&directory_buf, directory.i_block[0], 1);
     uint32_t offset = get_dir_first_child_offset(directory_buf.buf);
     while (offset < BLOCK_SIZE) {
         struct EXT2DirectoryEntry *entry =
             get_directory_entry(directory_buf.buf, offset);
-        if (entry->inode == 0) return true;
+        if (entry->inode == 0)
+            return true;
         if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset ||
             sizeof(*entry) + entry->name_len > entry->rec_len) {
             return false;
@@ -176,20 +190,21 @@ static bool shell_repair_empty_directory(uint32_t inode) {
     struct EXT2Inode directory;
     struct BlockBuffer directory_buf;
     get_node(&directory, inode);
-    if ((directory.i_mode & EXT2_S_IFDIR) == 0) return false;
+    if ((directory.i_mode & EXT2_S_IFDIR) == 0)
+        return false;
 
     read_blocks(&directory_buf, directory.i_block[0], 1);
     struct EXT2DirectoryEntry *first =
         get_directory_entry(directory_buf.buf, 0);
-    if (first->name_len != 2 || first->rec_len != BLOCK_SIZE - get_entry_record_len(1) ||
+    if (first->name_len != 2 ||
+        first->rec_len != BLOCK_SIZE - get_entry_record_len(1) ||
         memcmp(get_entry_name(first), "..", 2) != 0) {
         return false;
     }
 
     uint32_t parent_inode = first->inode;
     memset(&directory_buf, 0, sizeof(directory_buf));
-    struct EXT2DirectoryEntry *dot =
-        get_directory_entry(directory_buf.buf, 0);
+    struct EXT2DirectoryEntry *dot = get_directory_entry(directory_buf.buf, 0);
     dot->inode = inode;
     dot->rec_len = get_entry_record_len(1);
     dot->name_len = 1;
@@ -206,15 +221,18 @@ static bool shell_repair_empty_directory(uint32_t inode) {
     return true;
 }
 
-static bool shell_initialize_directory(uint32_t inode, uint32_t parent_inode) {
+static bool shell_initialize_directory(
+    uint32_t inode,
+    uint32_t parent_inode
+) {
     struct EXT2Inode directory;
     struct BlockBuffer directory_buf;
     get_node(&directory, inode);
-    if ((directory.i_mode & EXT2_S_IFDIR) == 0) return false;
+    if ((directory.i_mode & EXT2_S_IFDIR) == 0)
+        return false;
 
     memset(&directory_buf, 0, sizeof(directory_buf));
-    struct EXT2DirectoryEntry *dot =
-        get_directory_entry(directory_buf.buf, 0);
+    struct EXT2DirectoryEntry *dot = get_directory_entry(directory_buf.buf, 0);
     dot->inode = inode;
     dot->rec_len = get_entry_record_len(1);
     dot->name_len = 1;
@@ -235,18 +253,22 @@ static bool shell_initialize_directory(uint32_t inode, uint32_t parent_inode) {
     return true;
 }
 
-static uint32_t shell_find_child_inode(uint32_t parent_inode, const char *name) {
+static uint32_t shell_find_child_inode(
+    uint32_t parent_inode,
+    const char *name
+) {
     struct EXT2Inode parent;
     struct BlockBuffer directory_buf;
     get_node(&parent, parent_inode);
     read_blocks(&directory_buf, parent.i_block[0], 1);
 
     uint32_t offset = 0;
-    uint32_t name_len = (uint32_t)str_len(name);
+    uint32_t name_len = (uint32_t) str_len(name);
     while (offset < BLOCK_SIZE) {
         struct EXT2DirectoryEntry *entry =
             get_directory_entry(directory_buf.buf, offset);
-        if (entry->inode == 0) return 0;
+        if (entry->inode == 0)
+            return 0;
         if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset ||
             sizeof(*entry) + entry->name_len > entry->rec_len) {
             return 0;
@@ -260,19 +282,28 @@ static uint32_t shell_find_child_inode(uint32_t parent_inode, const char *name) 
     return 0;
 }
 
-int8_t resolve_path(uint32_t start_inode, const char *path, uint32_t *resolved_inode) {
+int8_t resolve_path(
+    uint32_t start_inode,
+    const char *path,
+    uint32_t *resolved_inode
+) {
     uint32_t current_inode = start_inode;
-    if (path == NULL || resolved_inode == NULL) return -1;
-    if (path[0] == '/') current_inode = 1;
+    if (path == NULL || resolved_inode == NULL)
+        return -1;
+    if (path[0] == '/')
+        current_inode = 1;
     while (1) {
-        while (*path == '/') path++;
+        while (*path == '/')
+            path++;
         if (*path == '\0') {
             *resolved_inode = current_inode;
             return 0;
         }
         uint32_t name_len = 0;
-        while (path[name_len] != '\0' && path[name_len] != '/') name_len++;
-        if (name_len > UINT8_MAX) return -1;
+        while (path[name_len] != '\0' && path[name_len] != '/')
+            name_len++;
+        if (name_len > UINT8_MAX)
+            return -1;
         if (name_len == 1 && path[0] == '.') {
             // current directory
         } else if (name_len == 2 && path[0] == '.' && path[1] == '.') {
@@ -286,19 +317,22 @@ int8_t resolve_path(uint32_t start_inode, const char *path, uint32_t *resolved_i
             );
             current_inode = dotdot->inode;
         } else {
-            if (!shell_directory_entries_valid(current_inode)) return 2;
+            if (!shell_directory_entries_valid(current_inode))
+                return 2;
             char name[UINT8_MAX + 1];
             strcopy_len(path, name, name_len);
             struct BlockBuffer directory_buf;
             struct EXT2DriverRequest request = {
                 .buf = &directory_buf,
                 .name = name,
-                .name_len = (uint8_t)name_len,
+                .name_len = (uint8_t) name_len,
                 .parent_inode = current_inode
             };
             int8_t result = read_directory(&request);
-            if (result != 0) return result;
-            struct EXT2DirectoryEntry *dot = get_directory_entry(directory_buf.buf, 0);
+            if (result != 0)
+                return result;
+            struct EXT2DirectoryEntry *dot =
+                get_directory_entry(directory_buf.buf, 0);
             current_inode = dot->inode;
         }
         path += name_len;
@@ -306,11 +340,15 @@ int8_t resolve_path(uint32_t start_inode, const char *path, uint32_t *resolved_i
 }
 
 static uint8_t shell_printf_attribute(void) {
-    return (uint8_t)((shell_printf_bg << 4) | (shell_printf_fg & 0x0F));
+    return (uint8_t) ((shell_printf_bg << 4) | (shell_printf_fg & 0x0F));
 }
 
-static void shell_printf_write(const char *message, uint32_t length) {
-    if (length == 0) return;
+static void shell_printf_write(
+    const char *message,
+    uint32_t length
+) {
+    if (length == 0)
+        return;
     framebuffer_puts(message, length, shell_printf_attribute());
     for (uint32_t i = 0; i < length; i++) {
         if (message[i] == '\n') {
@@ -347,23 +385,28 @@ static uint32_t shell_parse_sgr(
     }
 
     for (; i < length; i++) {
-        if (i - start > 64) return 0;
+        if (i - start > 64)
+            return 0;
         char c = message[i];
         if (c >= '0' && c <= '9') {
-            value = value * 10 + (uint32_t)(c - '0');
-            if (value > 999) return 0;
+            value = value * 10 + (uint32_t) (c - '0');
+            if (value > 999)
+                return 0;
             has_digit = true;
         } else if (c == ';' || c == 'm') {
-            if (parameter_count >= 16) return 0;
-            parameters[parameter_count++] = has_digit ? (uint16_t)value : 0;
+            if (parameter_count >= 16)
+                return 0;
+            parameters[parameter_count++] = has_digit ? (uint16_t) value : 0;
             value = 0;
             has_digit = false;
-            if (c == 'm') break;
+            if (c == 'm')
+                break;
         } else {
             return 0;
         }
     }
-    if (i >= length || message[i] != 'm') return 0;
+    if (i >= length || message[i] != 'm')
+        return 0;
 
     static const uint8_t ansi_to_vga[8] = {0, 4, 2, 6, 1, 5, 3, 7};
     for (uint32_t p = 0; p < parameter_count; p++) {
@@ -374,11 +417,11 @@ static uint32_t shell_parse_sgr(
         } else if (code >= 30 && code <= 37) {
             shell_printf_fg = ansi_to_vga[code - 30];
         } else if (code >= 90 && code <= 97) {
-            shell_printf_fg = (uint8_t)(ansi_to_vga[code - 90] + 8);
+            shell_printf_fg = (uint8_t) (ansi_to_vga[code - 90] + 8);
         } else if (code >= 40 && code <= 47) {
             shell_printf_bg = ansi_to_vga[code - 40];
         } else if (code >= 100 && code <= 107) {
-            shell_printf_bg = (uint8_t)(ansi_to_vga[code - 100] + 8);
+            shell_printf_bg = (uint8_t) (ansi_to_vga[code - 100] + 8);
         } else if (code == 39) {
             shell_printf_fg = 0x0F;
         } else if (code == 49) {
@@ -396,14 +439,16 @@ static void shell_printf_newline(void) {
     shell_printf_col = 0;
 }
 
-static void shell_printf_n(const char *message, uint32_t length) {
+static void shell_printf_n(
+    const char *message,
+    uint32_t length
+) {
     uint32_t i = 0;
     while (i < length) {
         if (message[i] == '\n') {
             shell_printf_newline();
             i++;
-        }
-        else {
+        } else {
             uint32_t consumed = 0;
             if (message[i] == '\x1B' && i + 1 < length &&
                 message[i + 1] == '[') {
@@ -411,14 +456,15 @@ static void shell_printf_n(const char *message, uint32_t length) {
             }
             if (consumed != 0) {
                 i += consumed;
-            }
-            else {
+            } else {
                 uint32_t text_start = i;
-                while (i < length && message[i] != '\n' &&
-                    message[i] != '\x1B') {
+                while (
+                    i < length && message[i] != '\n' && message[i] != '\x1B'
+                ) {
                     i++;
                 }
-                if (i == text_start) i++;
+                if (i == text_start)
+                    i++;
                 shell_printf_write(message + text_start, i - text_start);
             }
         }
@@ -426,10 +472,14 @@ static void shell_printf_n(const char *message, uint32_t length) {
 }
 
 static void shell_printf(const char *message) {
-    shell_printf_n(message, (uint32_t)str_len(message));
+    shell_printf_n(message, (uint32_t) str_len(message));
 }
 
-static void shell_print_error(const char *prefix, const char *name, const char *suffix) {
+static void shell_print_error(
+    const char *prefix,
+    const char *name,
+    const char *suffix
+) {
     char message[SHELL_BUFFER_SIZE + 64];
     uint32_t i = 0;
     for (uint32_t j = 0; prefix[j] != '\0'; j++) {
@@ -468,9 +518,8 @@ static void shell_get_current_path(char path[SHELL_BUFFER_SIZE]) {
             break;
         }
         read_blocks(&directory_buf, directory.i_block[0], 1);
-        struct EXT2DirectoryEntry *dotdot = get_next_directory_entry(
-            get_directory_entry(directory_buf.buf, 0)
-        );
+        struct EXT2DirectoryEntry *dotdot =
+            get_next_directory_entry(get_directory_entry(directory_buf.buf, 0));
         uint32_t parent_inode = dotdot->inode;
         if (parent_inode == 0 || parent_inode == inode) {
             valid = false;
@@ -495,7 +544,10 @@ static void shell_get_current_path(char path[SHELL_BUFFER_SIZE]) {
                     valid = false;
                     break;
                 }
-                memcpy(reverse_path + reverse_len, get_entry_name(entry), entry->name_len);
+                memcpy(
+                    reverse_path + reverse_len, get_entry_name(entry),
+                    entry->name_len
+                );
                 reverse_len += entry->name_len;
                 reverse_path[reverse_len++] = '/';
                 found_name = true;
@@ -520,10 +572,13 @@ static void shell_get_current_path(char path[SHELL_BUFFER_SIZE]) {
     path[path_len++] = '/';
     uint32_t end = reverse_len;
     while (end > 0) {
-        while (end > 0 && reverse_path[end - 1] == '/') end--;
+        while (end > 0 && reverse_path[end - 1] == '/')
+            end--;
         uint32_t component_end = end;
-        while (end > 0 && reverse_path[end - 1] != '/') end--;
-        if (path_len > 1) path[path_len++] = '/';
+        while (end > 0 && reverse_path[end - 1] != '/')
+            end--;
+        if (path_len > 1)
+            path[path_len++] = '/';
         for (uint32_t i = end; i < component_end; i++) {
             path[path_len++] = reverse_path[i];
         }
@@ -537,7 +592,8 @@ static void shell_print_prompt(void) {
     shell_printf("User@OSuu:");
     shell_printf(path);
     shell_printf("$ ");
-    if (shell_printf_col >= FRAMEBUFFER_WIDTH) shell_printf_newline();
+    if (shell_printf_col >= FRAMEBUFFER_WIDTH)
+        shell_printf_newline();
     uint8_t row;
     uint8_t col;
     shell_get_cursor_position(&row, &col);
@@ -547,45 +603,64 @@ static void shell_print_prompt(void) {
 static void shell_refresh_input_line(void) {
     Line *line = &shell_history.buffer[history_idx];
     uint8_t input_row = shell_printf_row;
-    uint32_t line_length = (uint32_t)str_len(line->buffer);
+    uint32_t line_length = (uint32_t) str_len(line->buffer);
 
     for (uint8_t col = 0; col < FRAMEBUFFER_WIDTH; col++) {
         framebuffer_write(input_row, col, ' ', 0xF, 0);
     }
 
     shell_printf_col = 0;
+    // Reset the cursor position
+    framebuffer_set_cursor(input_row, 0);
     shell_print_prompt();
     uint8_t input_start_col = shell_printf_col;
-    for (uint32_t i = 0;
-         i < line_length && input_start_col + i < FRAMEBUFFER_WIDTH;
-         i++) {
-        framebuffer_write(input_row, input_start_col + i, line->buffer[i], 0xF, 0);
+    for (
+        uint32_t i = 0;
+        i < line_length && input_start_col + i < FRAMEBUFFER_WIDTH; i++
+    ) {
+        framebuffer_write(
+            input_row, input_start_col + i, line->buffer[i], 0xF, 0
+        );
     }
 
-    uint32_t cursor_col = input_start_col + (uint32_t)cursor_pos;
-    if (cursor_col >= FRAMEBUFFER_WIDTH) cursor_col = FRAMEBUFFER_WIDTH - 1;
+    uint32_t cursor_col = input_start_col + (uint32_t) cursor_pos;
+    if (cursor_col >= FRAMEBUFFER_WIDTH)
+        cursor_col = FRAMEBUFFER_WIDTH - 1;
     shell_printf_col = input_start_col;
-    framebuffer_set_cursor(input_row, (uint8_t)cursor_col);
+    framebuffer_set_cursor(input_row, (uint8_t) cursor_col);
 }
 
-void shell_get_cursor_position(uint8_t *row, uint8_t *col) {
-    uint32_t cursor = shell_printf_row * FRAMEBUFFER_WIDTH +
-        shell_printf_col + (uint32_t)cursor_pos;
+void shell_get_cursor_position(
+    uint8_t *row,
+    uint8_t *col
+) {
+    uint32_t cursor = shell_printf_row * FRAMEBUFFER_WIDTH + shell_printf_col +
+                      (uint32_t) cursor_pos;
     if (cursor >= FRAMEBUFFER_HEIGHT * FRAMEBUFFER_WIDTH) {
         cursor = FRAMEBUFFER_HEIGHT * FRAMEBUFFER_WIDTH - 1;
     }
-    if (row != NULL) *row = (uint8_t)(cursor / FRAMEBUFFER_WIDTH);
-    if (col != NULL) *col = (uint8_t)(cursor % FRAMEBUFFER_WIDTH);
+    if (row != NULL)
+        *row = (uint8_t) (cursor / FRAMEBUFFER_WIDTH);
+    if (col != NULL)
+        *col = (uint8_t) (cursor % FRAMEBUFFER_WIDTH);
 }
 
-void shell_cursor_left(uint8_t *row, uint8_t *col) {
-    if (cursor_pos > 0) cursor_pos--;
+void shell_cursor_left(
+    uint8_t *row,
+    uint8_t *col
+) {
+    if (cursor_pos > 0)
+        cursor_pos--;
     shell_get_cursor_position(row, col);
 }
 
-void shell_cursor_right(uint8_t *row, uint8_t *col) {
+void shell_cursor_right(
+    uint8_t *row,
+    uint8_t *col
+) {
     Line *line = &shell_history.buffer[history_idx];
-    if (cursor_pos < str_len(line->buffer)) cursor_pos++;
+    if (cursor_pos < str_len(line->buffer))
+        cursor_pos++;
     shell_get_cursor_position(row, col);
 }
 
@@ -595,9 +670,9 @@ static void shell_show_history_line(
     uint8_t *row,
     uint8_t *col
 ) {
-    uint32_t line_length = (uint32_t)str_len(line);
-    uint32_t display_length = previous_length > line_length
-        ? previous_length : line_length;
+    uint32_t line_length = (uint32_t) str_len(line);
+    uint32_t display_length =
+        previous_length > line_length ? previous_length : line_length;
     uint32_t start = shell_printf_row * FRAMEBUFFER_WIDTH + shell_printf_col;
     uint32_t screen_size = FRAMEBUFFER_HEIGHT * FRAMEBUFFER_WIDTH;
 
@@ -605,63 +680,71 @@ static void shell_show_history_line(
         char character = i < line_length ? line[i] : ' ';
         uint32_t position = start + i;
         framebuffer_write(
-            (uint8_t)(position / FRAMEBUFFER_WIDTH),
-            (uint8_t)(position % FRAMEBUFFER_WIDTH),
-            character,
-            0xF,
-            0
+            (uint8_t) (position / FRAMEBUFFER_WIDTH),
+            (uint8_t) (position % FRAMEBUFFER_WIDTH), character, 0xF, 0
         );
     }
 
-    uint32_t cursor = start + (uint32_t)cursor_pos;
-    if (cursor >= screen_size) cursor = screen_size - 1;
-    *row = (uint8_t)(cursor / FRAMEBUFFER_WIDTH);
-    *col = (uint8_t)(cursor % FRAMEBUFFER_WIDTH);
+    uint32_t cursor = start + (uint32_t) cursor_pos;
+    if (cursor >= screen_size)
+        cursor = screen_size - 1;
+    *row = (uint8_t) (cursor / FRAMEBUFFER_WIDTH);
+    *col = (uint8_t) (cursor % FRAMEBUFFER_WIDTH);
 }
 
-void shell_history_up(uint8_t *row, uint8_t *col) {
-    if (row == NULL || col == NULL || shell_history.length < 2) return;
+void shell_history_up(
+    uint8_t *row,
+    uint8_t *col
+) {
+    if (row == NULL || col == NULL || shell_history.length < 2)
+        return;
     uint16_t last_index = shell_history.length - 1;
     Line *current_line = &shell_history.buffer[last_index];
-    uint32_t previous_length = (uint32_t)str_len(current_line->buffer);
+    uint32_t previous_length = (uint32_t) str_len(current_line->buffer);
 
     if (history_view_idx < 0) {
         strcopy(current_line->buffer, shell_history_backup.buffer[0].buffer);
         shell_history_backup.buffer[0].length = current_line->length;
         history_draft_saved = true;
-        history_view_idx = (int)last_index - 1;
+        history_view_idx = (int) last_index - 1;
     } else if (history_view_idx > 0) {
         history_view_idx--;
     }
 
     Line *history_line = &shell_history.buffer[history_view_idx];
     strcopy(history_line->buffer, current_line->buffer);
-    current_line->length = (uint16_t)str_len(current_line->buffer);
-    cursor_pos = (int)current_line->length;
+    current_line->length = (uint16_t) str_len(current_line->buffer);
+    cursor_pos = (int) current_line->length;
     shell_show_history_line(current_line->buffer, previous_length, row, col);
 }
 
-void shell_history_down(uint8_t *row, uint8_t *col) {
-    if (row == NULL || col == NULL || history_view_idx < 0) return;
+void shell_history_down(
+    uint8_t *row,
+    uint8_t *col
+) {
+    if (row == NULL || col == NULL || history_view_idx < 0)
+        return;
     uint16_t last_index = shell_history.length - 1;
     Line *current_line = &shell_history.buffer[last_index];
-    uint32_t previous_length = (uint32_t)str_len(current_line->buffer);
+    uint32_t previous_length = (uint32_t) str_len(current_line->buffer);
 
-    if (history_view_idx < (int)last_index - 1) {
+    if (history_view_idx < (int) last_index - 1) {
         history_view_idx++;
         Line *history_line = &shell_history.buffer[history_view_idx];
         strcopy(history_line->buffer, current_line->buffer);
     } else {
         history_view_idx = -1;
         if (history_draft_saved) {
-            strcopy(shell_history_backup.buffer[0].buffer, current_line->buffer);
-            current_line->length = (uint16_t)str_len(current_line->buffer);
+            strcopy(
+                shell_history_backup.buffer[0].buffer, current_line->buffer
+            );
+            current_line->length = (uint16_t) str_len(current_line->buffer);
         }
         history_draft_saved = false;
     }
 
-    current_line->length = (uint16_t)str_len(current_line->buffer);
-    cursor_pos = (int)current_line->length;
+    current_line->length = (uint16_t) str_len(current_line->buffer);
+    cursor_pos = (int) current_line->length;
     shell_show_history_line(current_line->buffer, previous_length, row, col);
 }
 
@@ -670,18 +753,22 @@ static int resolve_parent_and_name(
     uint32_t *parent_inode,
     char name[UINT8_MAX + 1]
 ) {
-    if (path == NULL || parent_inode == NULL || name == NULL) return -1;
+    if (path == NULL || parent_inode == NULL || name == NULL)
+        return -1;
 
-    uint32_t path_len = (uint32_t)str_len(path);
-    if (path_len == 0 || path_len >= SHELL_BUFFER_SIZE || path[path_len - 1] == '/') {
+    uint32_t path_len = (uint32_t) str_len(path);
+    if (path_len == 0 || path_len >= SHELL_BUFFER_SIZE ||
+        path[path_len - 1] == '/') {
         return -1;
     }
 
     uint32_t name_start = path_len;
-    while (name_start > 0 && path[name_start - 1] != '/') name_start--;
+    while (name_start > 0 && path[name_start - 1] != '/')
+        name_start--;
     uint32_t name_len = path_len - name_start;
-    if (name_len == 0 || name_len > UINT8_MAX) return -1;
-    strcopy_len(path + name_start, name, (int)name_len);
+    if (name_len == 0 || name_len > UINT8_MAX)
+        return -1;
+    strcopy_len(path + name_start, name, (int) name_len);
 
     char parent_path[SHELL_BUFFER_SIZE];
     if (name_start == 0) {
@@ -690,7 +777,7 @@ static int resolve_parent_and_name(
         parent_path[0] = '/';
         parent_path[1] = '\0';
     } else {
-        strcopy_len(path, parent_path, (int)(name_start - 1));
+        strcopy_len(path, parent_path, (int) (name_start - 1));
     }
 
     return resolve_path(current_directory_inode, parent_path, parent_inode);
@@ -704,17 +791,19 @@ static int find_entry(
 ) {
     struct EXT2Inode parent_node;
     get_node(&parent_node, parent_inode);
-    if ((parent_node.i_mode & EXT2_S_IFDIR) == 0) return -1;
+    if ((parent_node.i_mode & EXT2_S_IFDIR) == 0)
+        return -1;
 
     struct BlockBuffer directory_buf;
     read_blocks(&directory_buf, parent_node.i_block[0], 1);
 
-    uint32_t name_len = (uint32_t)str_len(name);
+    uint32_t name_len = (uint32_t) str_len(name);
     uint32_t offset = get_dir_first_child_offset(directory_buf.buf);
     while (offset < BLOCK_SIZE) {
         struct EXT2DirectoryEntry *entry =
             get_directory_entry(directory_buf.buf, offset);
-        if (entry->inode == 0) return 0;
+        if (entry->inode == 0)
+            return 0;
         if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset ||
             sizeof(*entry) + entry->name_len > entry->rec_len) {
             return -1;
@@ -731,7 +820,10 @@ static int find_entry(
     return 0;
 }
 
-static int resolve_shell_file(const char *path, struct ShellFilePath *file) {
+static int resolve_shell_file(
+    const char *path,
+    struct ShellFilePath *file
+) {
     uint32_t resolved_inode;
     int result = resolve_path(current_directory_inode, path, &resolved_inode);
     if (result == 0) {
@@ -742,36 +834,44 @@ static int resolve_shell_file(const char *path, struct ShellFilePath *file) {
         file->is_directory = true;
         return 0;
     }
-    if (result != 1) return result;
+    if (result != 1)
+        return result;
 
-    uint32_t path_len = (uint32_t)str_len(path);
-    if (path_len > 0 && path[path_len - 1] == '/') return 1;
+    uint32_t path_len = (uint32_t) str_len(path);
+    if (path_len > 0 && path[path_len - 1] == '/')
+        return 1;
 
     result = resolve_parent_and_name(path, &file->parent_inode, file->name);
-    if (result != 0) return result;
+    if (result != 0)
+        return result;
 
     bool entry_is_directory;
-    int found = find_entry(file->parent_inode, file->name, &file->inode, &entry_is_directory);
-    if (found == 0) return 2;
-    if (found < 0) return -1;
+    int found = find_entry(
+        file->parent_inode, file->name, &file->inode, &entry_is_directory
+    );
+    if (found == 0)
+        return 2;
+    if (found < 0)
+        return -1;
 
     struct EXT2Inode node;
     get_node(&node, file->inode);
-    file->is_directory = entry_is_directory ||
-        (node.i_mode & EXT2_S_IFDIR) != 0;
+    file->is_directory =
+        entry_is_directory || (node.i_mode & EXT2_S_IFDIR) != 0;
     file->size = node.i_size;
     // Bounded by shell_file_buffer's actual size (USER_FILE_BUFFER_SIZE),
     // not the real 4 MiB disk - the ported shell's buffer is deliberately
     // much smaller than the kernel version's DISK_SPACE-sized one.
-    if (file->size > USER_FILE_BUFFER_SIZE) return -1;
+    if (file->size > USER_FILE_BUFFER_SIZE)
+        return -1;
     return 0;
 }
 
 static int read_shell_file(const struct ShellFilePath *file) {
     struct EXT2DriverRequest request = {
         .buf = shell_file_buffer,
-        .name = (char *)file->name,
-        .name_len = (uint8_t)str_len(file->name),
+        .name = (char *) file->name,
+        .name_len = (uint8_t) str_len(file->name),
         .parent_inode = file->parent_inode,
         .buffer_size = USER_FILE_BUFFER_SIZE,
         .is_directory = false
@@ -791,38 +891,51 @@ static int resolve_copy_destination(
     if (result == 0) {
         struct EXT2Inode node;
         get_node(&node, directory_inode);
-        if ((node.i_mode & EXT2_S_IFDIR) == 0) return 1;
+        if ((node.i_mode & EXT2_S_IFDIR) == 0)
+            return 1;
         *parent_inode = directory_inode;
         strcopy(source_name, name);
     } else {
-        uint32_t path_len = (uint32_t)str_len(path);
-        if (result == 1 && path_len > 0 && path[path_len - 1] == '/') return 1;
+        uint32_t path_len = (uint32_t) str_len(path);
+        if (result == 1 && path_len > 0 && path[path_len - 1] == '/')
+            return 1;
         result = resolve_parent_and_name(path, parent_inode, name);
-        if (result != 0) return result;
+        if (result != 0)
+            return result;
     }
 
     uint32_t existing_inode;
     bool existing_is_directory;
-    int found = find_entry(*parent_inode, name, &existing_inode, &existing_is_directory);
-    if (found < 0) return -1;
+    int found = find_entry(
+        *parent_inode, name, &existing_inode, &existing_is_directory
+    );
+    if (found < 0)
+        return -1;
     *already_exists = found == 1;
     return 0;
 }
 
-static void print_path_error(const char *command, const char *path, int result);
+static void print_path_error(
+    const char *command,
+    const char *path,
+    int result
+);
 
 static int shell_rm_entry(
     uint32_t parent_inode,
     const char *name,
     uint32_t depth
 ) {
-    if (depth >= SHELL_PATH_DEPTH_MAX) return -1;
+    if (depth >= SHELL_PATH_DEPTH_MAX)
+        return -1;
 
     uint32_t target_inode;
     bool is_directory;
     int found = find_entry(parent_inode, name, &target_inode, &is_directory);
-    if (found == 0) return 1;
-    if (found != 1) return -1;
+    if (found == 0)
+        return 1;
+    if (found != 1)
+        return -1;
     if (is_directory &&
         (target_inode == 1 || target_inode == current_directory_inode)) {
         return -1;
@@ -831,7 +944,8 @@ static int shell_rm_entry(
     if (is_directory) {
         struct EXT2Inode directory;
         get_node(&directory, target_inode);
-        if ((directory.i_mode & EXT2_S_IFDIR) == 0) return -1;
+        if ((directory.i_mode & EXT2_S_IFDIR) == 0)
+            return -1;
 
         while (true) {
             read_blocks(
@@ -845,7 +959,8 @@ static int shell_rm_entry(
                 struct EXT2DirectoryEntry *entry = get_directory_entry(
                     shell_rm_directory_buffers[depth].buf, offset
                 );
-                if (entry->inode == 0) break;
+                if (entry->inode == 0)
+                    break;
                 if (entry->rec_len == 0 ||
                     entry->rec_len > BLOCK_SIZE - offset ||
                     sizeof(*entry) + entry->name_len > entry->rec_len ||
@@ -865,14 +980,15 @@ static int shell_rm_entry(
                 has_child = true;
                 break;
             }
-            if (!has_child) break;
+            if (!has_child)
+                break;
         }
     }
 
     struct EXT2DriverRequest request = {
         .buf = NULL,
-        .name = (char *)name,
-        .name_len = (uint8_t)str_len(name),
+        .name = (char *) name,
+        .name_len = (uint8_t) str_len(name),
         .parent_inode = parent_inode,
         .buffer_size = 0,
         .is_directory = is_directory
@@ -895,7 +1011,8 @@ int shell_rm(char **args) {
         force_recursive = true;
     }
     if (force_recursive) {
-        if (args[2] == NULL) return 1;
+        if (args[2] == NULL)
+            return 1;
         path = args[2];
     } else {
         path = args[1];
@@ -909,7 +1026,8 @@ int shell_rm(char **args) {
     char name[UINT8_MAX + 1];
     int result = resolve_parent_and_name(path, &parent_inode, name);
     if (result != 0) {
-        if (force_recursive && result == 2) return 1;
+        if (force_recursive && result == 2)
+            return 1;
         print_path_error("rm: ", path, result);
         return 1;
     }
@@ -924,12 +1042,16 @@ int shell_rm(char **args) {
     bool is_directory;
     int found = find_entry(parent_inode, name, &target_inode, &is_directory);
     if (found == 0) {
-        shell_print_error("rm: cannot remove '", path, "': No such file or directory");
+        shell_print_error(
+            "rm: cannot remove '", path, "': No such file or directory"
+        );
         shell_printf("\n");
         return 1;
     }
     if (found < 0) {
-        shell_print_error("rm: cannot remove '", path, "': Unable to access directory");
+        shell_print_error(
+            "rm: cannot remove '", path, "': Unable to access directory"
+        );
         shell_printf("\n");
         return 1;
     }
@@ -938,20 +1060,22 @@ int shell_rm(char **args) {
         shell_printf("\n");
         return 1;
     }
-    if (is_directory && (target_inode == 1 || target_inode == current_directory_inode)) {
-        shell_print_error("rm: cannot remove '", path, "': Operation not permitted");
+    if (is_directory &&
+        (target_inode == 1 || target_inode == current_directory_inode)) {
+        shell_print_error(
+            "rm: cannot remove '", path, "': Operation not permitted"
+        );
         shell_printf("\n");
         return 1;
     }
 
     if (force_recursive) {
         result = shell_rm_entry(parent_inode, name, 0);
-    }
-    else {
+    } else {
         struct EXT2DriverRequest request = {
             .buf = NULL,
             .name = name,
-            .name_len = (uint8_t)str_len(name),
+            .name_len = (uint8_t) str_len(name),
             .parent_inode = parent_inode,
             .buffer_size = 0,
             .is_directory = is_directory
@@ -969,7 +1093,11 @@ int shell_rm(char **args) {
     return 1;
 }
 
-static void print_path_error(const char *command, const char *path, int result) {
+static void print_path_error(
+    const char *command,
+    const char *path,
+    int result
+) {
     const char *reason;
     if (result == 1 || result == 3) {
         reason = ": Not a directory";
@@ -982,7 +1110,11 @@ static void print_path_error(const char *command, const char *path, int result) 
     shell_printf("\n");
 }
 
-static void print_read_error(const char *command, const char *path, int result) {
+static void print_read_error(
+    const char *command,
+    const char *path,
+    int result
+) {
     const char *reason;
     if (result == 1) {
         reason = ": Is a directory";
@@ -1017,13 +1149,15 @@ void start_shell() {
 void add_char(char c) {
     Line *l = &shell_history.buffer[history_idx];
     int end = 0, i;
-    while (l->buffer[end] != '\0' && end < SHELL_BUFFER_SIZE - 1) end++;
+    while (l->buffer[end] != '\0' && end < SHELL_BUFFER_SIZE - 1)
+        end++;
     if (end >= SHELL_BUFFER_SIZE - 1) {
         shell_refresh_input_line();
         return;
     }
-    if (cursor_pos < 0 || cursor_pos > end) cursor_pos = end;
-    for (i=end; i>=cursor_pos; i--) {
+    if (cursor_pos < 0 || cursor_pos > end)
+        cursor_pos = end;
+    for (i = end; i >= cursor_pos; i--) {
         l->buffer[i + 1] = l->buffer[i];
     }
     l->buffer[cursor_pos] = c;
@@ -1037,13 +1171,14 @@ void add_char(char c) {
 void remove_char() {
     Line *l = &shell_history.buffer[history_idx];
     int end = 0, i;
-    while (l->buffer[end] != '\0' && end < SHELL_BUFFER_SIZE) end++;
+    while (l->buffer[end] != '\0' && end < SHELL_BUFFER_SIZE)
+        end++;
     if (cursor_pos <= 0 || cursor_pos > end) {
         shell_refresh_input_line();
         return;
     }
     cursor_pos--;
-    for (i=cursor_pos; l->buffer[i] != '\0'; i++)
+    for (i = cursor_pos; l->buffer[i] != '\0'; i++)
         l->buffer[i] = l->buffer[i + 1];
     l->length--;
     history_view_idx = -1;
@@ -1051,8 +1186,12 @@ void remove_char() {
     shell_refresh_input_line();
 }
 
-int shell_split_line(char *line, char **args) {
-    if (line == NULL || args == NULL) return -1;
+int shell_split_line(
+    char *line,
+    char **args
+) {
+    if (line == NULL || args == NULL)
+        return -1;
     for (int i = 0; i < SHELL_MAX_ARGS - 1; i++) {
         args[i] = shell_arg_storage[i];
     }
@@ -1061,8 +1200,10 @@ int shell_split_line(char *line, char **args) {
 }
 
 int shell_execute(char **args) {
-    int N = (int)(sizeof(builtin_cmd) / sizeof(builtin_cmd[0]));
-    if (args == NULL || args[0] == NULL) { return 1; };
+    int N = (int) (sizeof(builtin_cmd) / sizeof(builtin_cmd[0]));
+    if (args == NULL || args[0] == NULL) {
+        return 1;
+    };
     shell_printf_newline();
     for (int i = 0; i < N; i++) {
         if (streq(args[0], builtin_cmd[i])) {
@@ -1080,12 +1221,13 @@ int enter_command() {
     // if (shell_printf_col > 0) shell_printf_newline();
     // char str[2]; str[0] = '0'+N; str[1] = '\0';
     // shell_printf(str);
-    if (!shell_execute(args)) return 0;
+    if (!shell_execute(args))
+        return 0;
 
     if (line->buffer[0] != '\0' && shell_history.length < SHELL_BUFFER_SIZE) {
         shell_history.length++;
     }
-    history_idx = (int)shell_history.length - 1;
+    history_idx = (int) shell_history.length - 1;
     Line *current_line = &shell_history.buffer[history_idx];
     current_line->length = 0;
     current_line->buffer[0] = '\0';
@@ -1097,7 +1239,7 @@ int enter_command() {
 }
 
 int shell_sudo(char **args) {
-    (void)args;
+    (void) args;
     return 1;
 }
 
@@ -1106,13 +1248,15 @@ int shell_cd(char **args) {
         shell_printf("cd: cd [path]\nChange the current directory.\n");
         return 1;
     }
-    if (args == NULL) return 1;
+    if (args == NULL)
+        return 1;
     if (args[1] == NULL) {
         current_directory_inode = 1;
         return 1;
     }
     uint32_t resolved_inode;
-    int8_t result = resolve_path(current_directory_inode, args[1], &resolved_inode);
+    int8_t result =
+        resolve_path(current_directory_inode, args[1], &resolved_inode);
     if (result == 0) {
         current_directory_inode = resolved_inode;
     } else if (result == 1 || result == 3) {
@@ -1135,38 +1279,50 @@ int shell_ls(char **args) {
     }
     struct EXT2Inode ls_directory;
     struct BlockBuffer directory_buf;
-    if (args == NULL) return 1;
+    if (args == NULL)
+        return 1;
     if (args[1] != NULL) {
         uint32_t ls_inode;
-        int8_t result = resolve_path(current_directory_inode, args[1], &ls_inode);
+        int8_t result =
+            resolve_path(current_directory_inode, args[1], &ls_inode);
         if (result == 1) {
             // path is a file, split path to directory and file
             char dir[SHELL_BUFFER_SIZE];
             char name[UINT8_MAX + 1];
             if (dir_file_split(args[1], dir, name) != 0) {
-                shell_print_error("ls: cannot access '", args[1], "': No such file or directory");
+                shell_print_error(
+                    "ls: cannot access '", args[1],
+                    "': No such file or directory"
+                );
                 shell_printf("\n");
                 return 1;
             }
             uint32_t dir_inode;
             result = resolve_path(current_directory_inode, dir, &dir_inode);
             if (result == 1 || result == 3) {
-                shell_print_error("ls: cannot access '", args[1], "': Not a directory");
+                shell_print_error(
+                    "ls: cannot access '", args[1], "': Not a directory"
+                );
                 shell_printf("\n");
                 return 1;
             } else if (result == 2) {
-                shell_print_error("ls: cannot access '", args[1], "': No such file or directory");
+                shell_print_error(
+                    "ls: cannot access '", args[1],
+                    "': No such file or directory"
+                );
                 shell_printf("\n");
                 return 1;
             } else if (result != 0) {
-                shell_print_error("ls: cannot access '", args[1], "': Unknown error");
+                shell_print_error(
+                    "ls: cannot access '", args[1], "': Unknown error"
+                );
                 shell_printf("\n");
                 return 1;
             }
             struct EXT2DriverRequest request = {
                 .buf = &directory_buf,
                 .name = name,
-                .name_len = (uint8_t)str_len(name),
+                .name_len = (uint8_t) str_len(name),
                 .parent_inode = dir_inode
             };
             result = read_directory(&request);
@@ -1176,17 +1332,25 @@ int shell_ls(char **args) {
                 return 1;
             }
             if (result != 0) {
-                shell_print_error("ls: cannot access '", args[1], "': No such file or directory");
+                shell_print_error(
+                    "ls: cannot access '", args[1],
+                    "': No such file or directory"
+                );
                 shell_printf("\n");
                 return 1;
             }
             ls_inode = get_directory_entry(directory_buf.buf, 0)->inode;
         } else if (result != 0) {
             if (result == 1 || result == 3) {
-                shell_print_error("ls: cannot access '", args[1], "': Not a directory");
+                shell_print_error(
+                    "ls: cannot access '", args[1], "': Not a directory"
+                );
                 shell_printf("\n");
             } else {
-                shell_print_error("ls: cannot access '", args[1], "': No such file or directory");
+                shell_print_error(
+                    "ls: cannot access '", args[1],
+                    "': No such file or directory"
+                );
                 shell_printf("\n");
             }
             return 1;
@@ -1198,8 +1362,10 @@ int shell_ls(char **args) {
     read_blocks(&directory_buf, ls_directory.i_block[0], 1);
     uint32_t offset = get_dir_first_child_offset(directory_buf.buf);
     while (offset < BLOCK_SIZE) {
-        struct EXT2DirectoryEntry *entry = get_directory_entry(directory_buf.buf, offset);
-        if (entry->inode == 0) break;
+        struct EXT2DirectoryEntry *entry =
+            get_directory_entry(directory_buf.buf, offset);
+        if (entry->inode == 0)
+            break;
         if (entry->rec_len == 0 || entry->rec_len > BLOCK_SIZE - offset ||
             entry->name_len > UINT8_MAX ||
             sizeof(*entry) + entry->name_len > entry->rec_len) {
@@ -1219,40 +1385,51 @@ int shell_mkdir(char **args) {
         shell_printf("mkdir: mkdir [directory]\nCreate a directory.\n");
         return 1;
     }
-    if (args == NULL || args[1] == NULL) return 1;
+    if (args == NULL || args[1] == NULL)
+        return 1;
     if (!shell_directory_entries_valid(current_directory_inode)) {
         shell_repair_empty_directory(current_directory_inode);
     }
     char dir_path[SHELL_BUFFER_SIZE];
     char name[UINT8_MAX + 1];
     if (dir_file_split(args[1], dir_path, name) != 0) {
-        shell_print_error("mkdir: cannot create directory '", args[1], "': Invalid path");
+        shell_print_error(
+            "mkdir: cannot create directory '", args[1], "': Invalid path"
+        );
         shell_printf("\n");
         return 1;
     }
     uint32_t parent_inode;
-    int8_t result = resolve_path(current_directory_inode, dir_path, &parent_inode);
+    int8_t result =
+        resolve_path(current_directory_inode, dir_path, &parent_inode);
     if (result == 1 || result == 3) {
-        shell_print_error("mkdir: cannot create directory '", args[1], "': Not a directory");
+        shell_print_error(
+            "mkdir: cannot create directory '", args[1], "': Not a directory"
+        );
         shell_printf("\n");
         return 1;
     }
     if (result != 0) {
-        shell_print_error("mkdir: cannot create directory '", args[1], "': No such directory");
+        shell_print_error(
+            "mkdir: cannot create directory '", args[1], "': No such directory"
+        );
         shell_printf("\n");
         return 1;
     }
     if (!shell_directory_entries_valid(parent_inode) &&
         (!shell_repair_empty_directory(parent_inode) ||
          !shell_directory_entries_valid(parent_inode))) {
-        shell_print_error("mkdir: cannot create directory '", args[1], "': Unable to access directory");
+        shell_print_error(
+            "mkdir: cannot create directory '", args[1],
+            "': Unable to access directory"
+        );
         shell_printf("\n");
         return 1;
     }
     struct EXT2DriverRequest request = {
         .buf = NULL,
         .name = name,
-        .name_len = (uint8_t)str_len(name),
+        .name_len = (uint8_t) str_len(name),
         .parent_inode = parent_inode,
         .buffer_size = 0,
         .is_directory = true
@@ -1262,30 +1439,43 @@ int shell_mkdir(char **args) {
     lookup_request.buf = &existing_directory;
     int8_t lookup_result = read_directory(&lookup_request);
     if (lookup_result == 0 || lookup_result == 1) {
-        shell_print_error("mkdir: cannot create directory '", args[1], "': File exists");
+        shell_print_error(
+            "mkdir: cannot create directory '", args[1], "': File exists"
+        );
         shell_printf("\n");
         return 1;
     }
     if (lookup_result != 2) {
-        shell_print_error("mkdir: cannot create directory '", args[1], "': No such directory");
+        shell_print_error(
+            "mkdir: cannot create directory '", args[1], "': No such directory"
+        );
         shell_printf("\n");
         return 1;
     }
     result = write(&request);
     if (result == 1) {
-        shell_print_error("mkdir: cannot create directory '", args[1], "': File exists");
+        shell_print_error(
+            "mkdir: cannot create directory '", args[1], "': File exists"
+        );
     } else if (result != 0) {
-        shell_print_error("mkdir: cannot create directory '", args[1], "': Unable to create directory");
+        shell_print_error(
+            "mkdir: cannot create directory '", args[1],
+            "': Unable to create directory"
+        );
     } else {
         uint32_t child_inode = shell_find_child_inode(parent_inode, name);
         if (child_inode == 0 ||
             !shell_initialize_directory(child_inode, parent_inode)) {
-            shell_print_error("mkdir: cannot initialize directory '", args[1], "': Unable to initialize directory");
+            shell_print_error(
+                "mkdir: cannot initialize directory '", args[1],
+                "': Unable to initialize directory"
+            );
             shell_printf("\n");
             return 1;
         }
     }
-    if (result != 0) shell_printf("\n");
+    if (result != 0)
+        shell_printf("\n");
     return 1;
 }
 
@@ -1294,7 +1484,8 @@ int shell_cat(char **args) {
         shell_printf("cat: cat [file]\nDisplay a file's contents.\n");
         return 1;
     }
-    if (args == NULL || args[1] == NULL) return 1;
+    if (args == NULL || args[1] == NULL)
+        return 1;
     struct ShellFilePath file;
     int result = resolve_shell_file(args[1], &file);
     if (result != 0) {
@@ -1311,13 +1502,15 @@ int shell_cat(char **args) {
         print_read_error("cat: ", args[1], result);
         return 1;
     }
-    shell_printf_n((const char *)shell_file_buffer, file.size);
+    shell_printf_n((const char *) shell_file_buffer, file.size);
     return 1;
 }
 
 int shell_grep(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("grep: grep [PATTERN] [FILE]...\nSearch files for matching lines.\n");
+        shell_printf(
+            "grep: grep [PATTERN] [FILE]...\nSearch files for matching lines.\n"
+        );
         return 1;
     }
     if (args == NULL || args[1] == NULL) {
@@ -1332,7 +1525,8 @@ int shell_grep(char **args) {
 
     int first_file_index = 2;
     int file_count = 0;
-    while (args[first_file_index + file_count] != NULL) file_count++;
+    while (args[first_file_index + file_count] != NULL)
+        file_count++;
 
     for (int file_index = 0; file_index < file_count; file_index++) {
         const char *path = args[first_file_index + file_index];
@@ -1353,22 +1547,24 @@ int shell_grep(char **args) {
             continue;
         }
 
-        uint32_t pattern_length = (uint32_t)str_len(pattern);
+        uint32_t pattern_length = (uint32_t) str_len(pattern);
         uint32_t line_start = 0;
         while (line_start < file.size) {
             uint32_t line_end = line_start;
-            while (line_end < file.size && shell_file_buffer[line_end] != '\n') {
+            while (
+                line_end < file.size && shell_file_buffer[line_end] != '\n'
+            ) {
                 line_end++;
             }
             uint32_t line_length = line_end - line_start;
 
             bool matched = pattern_length == 0;
-            for (uint32_t start = 0;
-                 !matched && start + pattern_length <= line_length;
-                 start++) {
+            for (
+                uint32_t start = 0;
+                !matched && start + pattern_length <= line_length; start++
+            ) {
                 if (memcmp(
-                        shell_file_buffer + line_start + start,
-                        pattern,
+                        shell_file_buffer + line_start + start, pattern,
                         pattern_length
                     ) == 0) {
                     matched = true;
@@ -1383,23 +1579,27 @@ int shell_grep(char **args) {
                 if (pattern_length != 0) {
                     while (output_offset + pattern_length <= line_length) {
                         uint32_t match_offset = output_offset;
-                        while (match_offset + pattern_length <= line_length &&
+                        while (
+                            match_offset + pattern_length <= line_length &&
                             memcmp(
                                 shell_file_buffer + line_start + match_offset,
-                                pattern,
-                                pattern_length
-                            ) != 0) {
+                                pattern, pattern_length
+                            ) != 0
+                        ) {
                             match_offset++;
                         }
-                        if (match_offset + pattern_length > line_length) break;
+                        if (match_offset + pattern_length > line_length)
+                            break;
 
                         shell_printf_n(
-                            (const char *)shell_file_buffer + line_start + output_offset,
+                            (const char *) shell_file_buffer + line_start +
+                                output_offset,
                             match_offset - output_offset
                         );
                         shell_printf("\x1B[31m");
                         shell_printf_n(
-                            (const char *)shell_file_buffer + line_start + match_offset,
+                            (const char *) shell_file_buffer + line_start +
+                                match_offset,
                             pattern_length
                         );
                         shell_printf("\x1B[0m");
@@ -1407,13 +1607,15 @@ int shell_grep(char **args) {
                     }
                 }
                 shell_printf_n(
-                    (const char *)shell_file_buffer + line_start + output_offset,
+                    (const char *) shell_file_buffer + line_start +
+                        output_offset,
                     line_length - output_offset
                 );
                 shell_printf("\n");
             }
 
-            if (line_end == file.size) break;
+            if (line_end == file.size)
+                break;
             line_start = line_end + 1;
         }
     }
@@ -1425,7 +1627,8 @@ int shell_cp(char **args) {
         shell_printf("cp: cp [source] [destination]\nCopy a file.\n");
         return 1;
     }
-    if (args == NULL || args[1] == NULL || args[2] == NULL) return 1;
+    if (args == NULL || args[1] == NULL || args[2] == NULL)
+        return 1;
     struct ShellFilePath source;
     int result = resolve_shell_file(args[1], &source);
     if (result != 0) {
@@ -1464,7 +1667,7 @@ int shell_cp(char **args) {
     struct EXT2DriverRequest request = {
         .buf = shell_file_buffer,
         .name = destination_name,
-        .name_len = (uint8_t)str_len(destination_name),
+        .name_len = (uint8_t) str_len(destination_name),
         .parent_inode = destination_parent,
         .buffer_size = source.size,
         .is_directory = false,
@@ -1473,7 +1676,9 @@ int shell_cp(char **args) {
     if (result == 1) {
         shell_print_error("cp: cannot create '", args[2], "': File exists");
     } else if (result != 0) {
-        shell_print_error("cp: cannot create '", args[2], "': Unable to write file");
+        shell_print_error(
+            "cp: cannot create '", args[2], "': Unable to write file"
+        );
     }
     if (result != 0) {
         shell_printf("\n");
@@ -1488,7 +1693,8 @@ int shell_mv(char **args) {
         shell_printf("mv: mv [source] [destination]\nMove a file.\n");
         return 1;
     }
-    if (args == NULL || args[1] == NULL || args[2] == NULL) return 1;
+    if (args == NULL || args[1] == NULL || args[2] == NULL)
+        return 1;
 
     struct ShellFilePath source;
     int result = resolve_shell_file(args[1], &source);
@@ -1532,7 +1738,7 @@ int shell_mv(char **args) {
     struct EXT2DriverRequest destination_request = {
         .buf = shell_file_buffer,
         .name = destination_name,
-        .name_len = (uint8_t)str_len(destination_name),
+        .name_len = (uint8_t) str_len(destination_name),
         .parent_inode = destination_parent,
         .buffer_size = source.size,
         .is_directory = false,
@@ -1542,7 +1748,9 @@ int shell_mv(char **args) {
         if (result == 1) {
             shell_print_error("mv: cannot create '", args[2], "': File exists");
         } else {
-            shell_print_error("mv: cannot create '", args[2], "': Unable to write file");
+            shell_print_error(
+                "mv: cannot create '", args[2], "': Unable to write file"
+            );
         }
         shell_printf("\n");
         return 1;
@@ -1551,7 +1759,7 @@ int shell_mv(char **args) {
     struct EXT2DriverRequest source_request = {
         .buf = NULL,
         .name = source.name,
-        .name_len = (uint8_t)str_len(source.name),
+        .name_len = (uint8_t) str_len(source.name),
         .parent_inode = source.parent_inode,
         .buffer_size = 0,
         .is_directory = false
@@ -1562,7 +1770,9 @@ int shell_mv(char **args) {
         rollback_request.buf = NULL;
         rollback_request.buffer_size = 0;
         delete(rollback_request);
-        shell_print_error("mv: cannot remove '", args[1], "': Unable to remove file");
+        shell_print_error(
+            "mv: cannot remove '", args[1], "': Unable to remove file"
+        );
         shell_printf("\n");
     }
     return 1;
@@ -1570,7 +1780,9 @@ int shell_mv(char **args) {
 
 int shell_find(char **args) {
     if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
-        shell_printf("Usage: find [path]\nList files and directories recursively.\n");
+        shell_printf(
+            "Usage: find [path]\nList files and directories recursively.\n"
+        );
         return 1;
     }
     bool root_call = args == NULL || args[1] == NULL;
@@ -1579,36 +1791,25 @@ int shell_find(char **args) {
         shell_find_path[0] = '.';
         shell_find_path[1] = '\0';
     } else {
-        int result = resolve_path(
-            current_directory_inode,
-            args[1],
-            &inode
-        );
-        if (result != 0) return 1;
+        int result = resolve_path(current_directory_inode, args[1], &inode);
+        if (result != 0)
+            return 1;
         strcopy(args[1], shell_find_path);
     }
 
     shell_printf(shell_find_path);
     shell_printf("\n");
-    uint32_t path_len = (uint32_t)str_len(shell_find_path);
+    uint32_t path_len = (uint32_t) str_len(shell_find_path);
     struct EXT2Inode directory;
     get_node(&directory, inode);
-    if ((directory.i_mode & EXT2_S_IFDIR) == 0) return 1;
+    if ((directory.i_mode & EXT2_S_IFDIR) == 0)
+        return 1;
 
-    read_blocks(
-        &shell_find_directory_buffer,
-        directory.i_block[0],
-        1
-    );
-    uint32_t offset = get_dir_first_child_offset(
-        shell_find_directory_buffer.buf
-    );
+    read_blocks(&shell_find_directory_buffer, directory.i_block[0], 1);
+    uint32_t offset =
+        get_dir_first_child_offset(shell_find_directory_buffer.buf);
     while (offset < BLOCK_SIZE) {
-        read_blocks(
-            &shell_find_directory_buffer,
-            directory.i_block[0],
-            1
-        );
+        read_blocks(&shell_find_directory_buffer, directory.i_block[0], 1);
         struct EXT2DirectoryEntry *entry =
             get_directory_entry(shell_find_directory_buffer.buf, offset);
         if (entry->inode == 0 || entry->rec_len == 0 ||
@@ -1618,24 +1819,21 @@ int shell_find(char **args) {
         }
 
         uint32_t next_offset = offset + entry->rec_len;
-        bool add_separator = path_len == 0 || shell_find_path[path_len - 1] != '/';
+        bool add_separator =
+            path_len == 0 || shell_find_path[path_len - 1] != '/';
         uint32_t separator_len = add_separator ? 1 : 0;
         uint32_t child_path_len = path_len + separator_len + entry->name_len;
         if (child_path_len < SHELL_BUFFER_SIZE) {
-            if (add_separator) shell_find_path[path_len] = '/';
+            if (add_separator)
+                shell_find_path[path_len] = '/';
             memcpy(
                 shell_find_path + path_len + separator_len,
-                get_entry_name(entry),
-                entry->name_len
+                get_entry_name(entry), entry->name_len
             );
             shell_find_path[child_path_len] = '\0';
 
             if (entry->file_type == EXT2_FT_DIR) {
-                char *child_args[] = {
-                    "find",
-                    shell_find_path,
-                    NULL
-                };
+                char *child_args[] = {"find", shell_find_path, NULL};
                 shell_find(child_args);
             } else {
                 shell_printf(shell_find_path);
@@ -1653,7 +1851,8 @@ int shell_echo(char **args) {
         shell_printf("Usage: echo [text]\nDisplay the supplied text.\n");
         return 1;
     }
-    if (args == NULL || args[0] == NULL  || args[1] == NULL) return 1;
+    if (args == NULL || args[0] == NULL || args[1] == NULL)
+        return 1;
     shell_printf(args[1]);
     shell_printf_newline();
     return 1;
@@ -1676,8 +1875,8 @@ int shell_exit(char **args) {
         shell_printf("Usage: exit\nExit the shell.\n");
         return 1;
     }
-    (void)args;
-    exit_process();
+    (void) args;
+    exit_all_processes();
 }
 
 int shell_badapple(char **args) {
@@ -1695,4 +1894,3 @@ int shell_badapple(char **args) {
     shell_printf_col = 0;
     return 1;
 }
-

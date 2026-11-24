@@ -72,4 +72,10 @@ void scheduler_wake_waiting(uint32_t wait_queue);
  */
 __attribute__((noreturn)) void scheduler_terminate_current(void);
 
+/**
+ * Destroy every registered process and halt. Used when the shell exits so a
+ * second shell instance cannot keep running after the session is over.
+ */
+__attribute__((noreturn)) void scheduler_terminate_all(void);
+
 #endif

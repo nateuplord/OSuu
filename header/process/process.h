@@ -10,6 +10,7 @@
 #include "memory/paging.h"
 
 #define PROCESS_NAME_LENGTH_MAX 32
+// 256 code/data frames (1 MiB, matching linker.ld's user program size cap) + 1 stack frame
 #define PROCESS_PAGE_FRAME_COUNT_MAX 257
 #define PROCESS_COUNT_MAX 16
 #define PROCESS_PRIORITY_DEFAULT 1u
@@ -101,7 +102,6 @@ enum ContextInterruptFrameIndex {
  * must stay at least one larger than the largest program page count. The
  * default 1 MiB program cap therefore needs 257 frames.
  */
-
 /**
  * Contain information needed for task to be able to get interrupted and resumed later
  *

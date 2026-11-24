@@ -146,6 +146,10 @@ void syscall(struct InterruptFrame frame) {
             scheduler_tick();
             break;
 
+        case SYSCALL_PROCESS_EXIT_ALL:
+            scheduler_terminate_all();
+            break;
+
         default:
             break;
     }

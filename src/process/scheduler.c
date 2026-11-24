@@ -269,3 +269,27 @@ __attribute__((noreturn)) void scheduler_terminate_current(void) {
     switch_to(next);
     __builtin_unreachable();
 }
+
+__attribute__((noreturn)) void scheduler_terminate_all(void) {
+    while (process_manager_state.active_process_count > 0) {
+        int32_t index = -1;
+        for (uint32_t i = 0; i < PROCESS_COUNT_MAX; ++i) {
+            if (process_manager_state.is_process_active[i]) {
+                index = (int32_t) i;
+                break;
+            }
+        }
+
+        // Defensive: the counter says a process exists but the bitmap does not.
+        if (index < 0) {
+            break;
+        }
+
+        struct ProcessControlBlock *pcb = &_process_list[index];
+        uint32_t pid = pcb->metadata.pid;
+        scheduler_unregister_process(pcb);
+        process_destroy(pid);
+    }
+
+    halt_cpu();
+}
