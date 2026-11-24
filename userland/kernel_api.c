@@ -108,6 +108,23 @@ void framebuffer_clear(void) {
     syscall(SYSCALL_TEXT_CLEAR, 0, 0, 0);
 }
 
+void gui_fill_rect(
+    uint16_t x,
+    uint16_t y,
+    uint16_t width,
+    uint16_t height,
+    uint8_t color
+) {
+    struct GuiRect rect = {
+        .x = x,
+        .y = y,
+        .width = width,
+        .height = height,
+        .color = color,
+    };
+    syscall(SYSCALL_GUI_FILL_RECT, (uint32_t) &rect, 0, 0);
+}
+
 void play_bad_apple(
     uint16_t offset_x,
     uint16_t offset_y
@@ -117,6 +134,10 @@ void play_bad_apple(
 
 void get_keyboard_buffer(char *buf) {
     syscall(SYSCALL_KEYBOARD_GETCHAR, (uint32_t) buf, 0, 0);
+}
+
+void poll_keyboard_buffer(char *buf) {
+    syscall(SYSCALL_KEYBOARD_POLL, (uint32_t) buf, 0, 0);
 }
 
 void keyboard_state_activate(void) {

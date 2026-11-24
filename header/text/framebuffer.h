@@ -75,6 +75,21 @@ void putpixel(
 );
 
 /**
+ * Fill an axis-aligned rectangle in the linear framebuffer.
+ *
+ * @details Clips the rectangle to the visible framebuffer. Used by userland
+ * GUI programs through SYSCALL_GUI_FILL_RECT so a whole cell can be drawn
+ * with one syscall instead of one syscall per pixel.
+ */
+void framebuffer_fill_rect(
+    uint16_t x,
+    uint16_t y,
+    uint16_t width,
+    uint16_t height,
+    uint8_t color_index
+);
+
+/**
  * Set framebuffer character and color with corresponding parameter values.
  * @note
  * More details:

@@ -50,6 +50,8 @@
 #define SYSCALL_PROCESS_CREATE 24
 #define SYSCALL_CMOS_READ 25
 #define SYSCALL_CMOS_TICKS 26
+#define SYSCALL_KEYBOARD_POLL 27
+#define SYSCALL_GUI_FILL_RECT 28
 
 /**
  * Dispatches a syscall based on the trapped CPU state's eax/ebx/ecx/edx.

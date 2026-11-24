@@ -9,6 +9,7 @@
 
 #include "driver/cmos.h"
 #include "fs_types.h"
+#include "gui/gui.h"
 #include "process/process_info.h"
 #include <stdint.h>
 
@@ -67,12 +68,22 @@ void framebuffer_set_cursor(
 void framebuffer_scroll_up(void);
 void framebuffer_clear(void);
 
+/** Built-in GUI primitives backed by the linear framebuffer. */
+void gui_fill_rect(
+    uint16_t x,
+    uint16_t y,
+    uint16_t width,
+    uint16_t height,
+    uint8_t color
+);
+
 void play_bad_apple(
     uint16_t offset_x,
     uint16_t offset_y
 );
 
 void get_keyboard_buffer(char *buf);
+void poll_keyboard_buffer(char *buf);
 void keyboard_state_activate(void);
 
 /** Process management - backed by int 0x30 services 17-24. */

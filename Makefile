@@ -27,7 +27,7 @@ ASM_SRC := $(shell find $(SOURCE_FOLDER) -name '*.s')
 OBJS    := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
            $(ASM_SRC:$(SOURCE_FOLDER)/%.s=$(OUTPUT_FOLDER)/%.o)
 
-.PHONY: run clean build kernel iso disk test-sample inserter user-shell user-clock insert-shell insert-clock insert-userland insert-badapple
+.PHONY: run clean build kernel iso disk test-sample inserter user-shell user-clock user-snake insert-shell insert-clock insert-snake insert-userland insert-badapple
 
 SAMPLE_IMAGE = .kit/ch2/sample-image.bin
 
@@ -91,21 +91,25 @@ bin/inserter: $(INSERTER_SRC)
 	@$(HOST_CC) $(HOST_CFLAGS) $(INSERTER_SRC) -o $@
 
 # User programs: flat binaries linked at 0x0 and inserted into the ext2 image.
-# Keep source lists explicit - a wildcard would compile clock.c's main() into
-# the shell binary too.
+# Keep source lists explicit - a wildcard would compile every program's main()
+# into the shell binary too.
 USER_FOLDER     = userland
 USER_BIN        = $(OUTPUT_FOLDER)/userprog/shell
 USER_CLOCK_BIN  = $(OUTPUT_FOLDER)/userprog/clock
+USER_SNAKE_BIN  = $(OUTPUT_FOLDER)/userprog/snake
 
 USER_SHARED_SRC := $(USER_FOLDER)/kernel_api.c $(USER_FOLDER)/string.c
 USER_SHELL_SRC  := $(USER_FOLDER)/shell.c $(USER_FOLDER)/user-shell.c
 USER_CLOCK_SRC  := $(USER_FOLDER)/clock.c
+USER_SNAKE_SRC  := $(USER_FOLDER)/snake.c
 
 USER_SHARED_OBJS := $(USER_SHARED_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
 USER_SHELL_OBJS  := $(USER_SHARED_OBJS) $(OUTPUT_FOLDER)/userprog/crt0.o \
                     $(USER_SHELL_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
 USER_CLOCK_OBJS  := $(USER_SHARED_OBJS) $(OUTPUT_FOLDER)/userprog/crt0.o \
                     $(USER_CLOCK_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
+USER_SNAKE_OBJS  := $(USER_SHARED_OBJS) $(OUTPUT_FOLDER)/userprog/crt0.o \
+                    $(USER_SNAKE_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
 
 $(OUTPUT_FOLDER)/userprog/%.o: $(USER_FOLDER)/%.c
 	@mkdir -p $(dir $@)
@@ -127,8 +131,15 @@ $(USER_CLOCK_BIN): $(USER_CLOCK_OBJS) $(USER_FOLDER)/linker.ld
 	@echo Linking clock flat binary...
 	@size --target=binary $@
 
+$(USER_SNAKE_BIN): $(USER_SNAKE_OBJS) $(USER_FOLDER)/linker.ld
+	@$(LINK) -T $(USER_FOLDER)/linker.ld -melf_i386 --oformat=binary \
+		$(USER_SNAKE_OBJS) -o $@
+	@echo Linking snake flat binary...
+	@size --target=binary $@
+
 user-shell: $(USER_BIN)
 user-clock: $(USER_CLOCK_BIN)
+user-snake: $(USER_SNAKE_BIN)
 
 insert-shell: $(USER_BIN) inserter
 	@echo Inserting shell into root directory...
@@ -138,11 +149,17 @@ insert-clock: $(USER_CLOCK_BIN) inserter
 	@echo Inserting clock into root directory...
 	@cd $(OUTPUT_FOLDER)/userprog && ../inserter -f clock 1 ../$(DISK_NAME).bin
 
-insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) inserter
+insert-snake: $(USER_SNAKE_BIN) inserter
+	@echo Inserting snake into root directory...
+	@cd $(OUTPUT_FOLDER)/userprog && ../inserter -f snake 1 ../$(DISK_NAME).bin
+
+insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) inserter
 	@echo Inserting shell into root directory...
 	@cd $(OUTPUT_FOLDER)/userprog && ../inserter -f shell 1 ../$(DISK_NAME).bin
 	@echo Inserting clock into root directory...
 	@cd $(OUTPUT_FOLDER)/userprog && ../inserter -f clock 1 ../$(DISK_NAME).bin
+	@echo Inserting snake into root directory...
+	@cd $(OUTPUT_FOLDER)/userprog && ../inserter -f snake 1 ../$(DISK_NAME).bin
 
 # badapple reads these from the root directory at runtime
 insert-badapple: inserter misc/palette.bin misc/frames.bin

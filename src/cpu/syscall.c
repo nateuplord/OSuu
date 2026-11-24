@@ -2,6 +2,7 @@
 #include "driver/cmos.h"
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
+#include "gui/gui.h"
 #include "misc/badapple.h"
 #include "process/process.h"
 #include "process/scheduler.h"
@@ -47,6 +48,11 @@ void syscall(struct InterruptFrame frame) {
             }
             break;
         }
+
+        case SYSCALL_KEYBOARD_POLL:
+            // Same buffer read as GETCHAR, but never blocks the caller.
+            get_keyboard_buffer((char *) frame.cpu.general.ebx);
+            break;
 
         case SYSCALL_TEXT_PUTCHAR:
             putchar(
@@ -126,6 +132,15 @@ void syscall(struct InterruptFrame frame) {
         case SYSCALL_TEXT_CLEAR:
             framebuffer_clear();
             break;
+
+        case SYSCALL_GUI_FILL_RECT: {
+            const struct GuiRect *rect =
+                (const struct GuiRect *) frame.cpu.general.ebx;
+            framebuffer_fill_rect(
+                rect->x, rect->y, rect->width, rect->height, rect->color
+            );
+            break;
+        }
 
         case SYSCALL_PROCESS_EXIT:
             scheduler_terminate_current();

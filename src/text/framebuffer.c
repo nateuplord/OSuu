@@ -211,6 +211,31 @@ void putpixel(
     *pixel = color_index;
 }
 
+void framebuffer_fill_rect(
+    uint16_t x,
+    uint16_t y,
+    uint16_t width,
+    uint16_t height,
+    uint8_t color_index
+) {
+    if (width == 0 || height == 0 || x >= fb_width || y >= fb_height) {
+        return;
+    }
+    if (width > fb_width - x) {
+        width = fb_width - x;
+    }
+    if (height > fb_height - y) {
+        height = fb_height - y;
+    }
+
+    for (uint16_t row = 0; row < height; ++row) {
+        volatile uint8_t *pixel = fb_addr + ((y + row) * fb_pitch) + x;
+        for (uint16_t col = 0; col < width; ++col) {
+            pixel[col] = color_index;
+        }
+    }
+}
+
 void framebuffer_set_cursor(
     uint8_t r,
     uint8_t c
