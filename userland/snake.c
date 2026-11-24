@@ -14,6 +14,13 @@
 #define SNAKE_MOVES_PER_SECOND 10u
 #define SNAKE_MOVE_INTERVAL_TICKS (PIT_HZ / SNAKE_MOVES_PER_SECOND)
 
+#define SNAKE_SOUND_START_HZ 660u
+#define SNAKE_SOUND_START_MS 80u
+#define SNAKE_SOUND_FOOD_HZ 880u
+#define SNAKE_SOUND_FOOD_MS 80u
+#define SNAKE_SOUND_GAME_OVER_HZ 220u
+#define SNAKE_SOUND_GAME_OVER_MS 300u
+
 #define SNAKE_DIR_UP 0u
 #define SNAKE_DIR_RIGHT 1u
 #define SNAKE_DIR_DOWN 2u
@@ -240,12 +247,15 @@ static void snake_return_to_shell(void) {
         .is_directory = false,
     };
 
+    audio_stop();
     framebuffer_clear();
     exec_process(exec_request);
     exit_process();
 }
 
 static void snake_game_over(void) {
+    audio_tone(SNAKE_SOUND_GAME_OVER_HZ, SNAKE_SOUND_GAME_OVER_MS);
+
     gui_fill_rect(176, 192, 288, 96, SNAKE_COLOR_BORDER);
     gui_fill_rect(180, 196, 280, 88, SNAKE_COLOR_BG);
     snake_write_text(25, 33, "GAME OVER", SNAKE_COLOR_TITLE);
@@ -369,6 +379,7 @@ static void snake_step(void) {
 
     if (eating) {
         ++snake_score;
+        audio_tone(SNAKE_SOUND_FOOD_HZ, SNAKE_SOUND_FOOD_MS);
         snake_place_food();
         snake_draw_food();
         snake_draw_hud();
@@ -390,6 +401,7 @@ int main(void) {
     snake_rng = pit_get_ticks() ^ 0xA5A5A5A5u;
     snake_place_food();
     snake_redraw();
+    audio_tone(SNAKE_SOUND_START_HZ, SNAKE_SOUND_START_MS);
 
     uint32_t last_tick = pit_get_ticks();
     while (true) {
