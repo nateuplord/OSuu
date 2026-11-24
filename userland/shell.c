@@ -679,9 +679,12 @@ static void shell_get_current_path(char path[SHELL_BUFFER_SIZE]) {
 static void shell_print_prompt(void) {
     char path[SHELL_BUFFER_SIZE];
     shell_get_current_path(path);
-    shell_printf("User@OSuu:");
+    // shell_printf consumes SGR escapes without advancing the cursor, so this
+    // keeps the same visible prompt length used by shell_refresh_input_line().
+    shell_printf("\x1B[32mUser@OSuu:\x1B[0m");
+    shell_printf("\x1B[34m");
     shell_printf(path);
-    shell_printf("$ ");
+    shell_printf("\x1B[31m$ \x1B[0m");
     if (shell_printf_col >= FRAMEBUFFER_WIDTH)
         shell_printf_newline();
     uint8_t row;
