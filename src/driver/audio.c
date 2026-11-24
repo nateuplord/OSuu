@@ -6,7 +6,8 @@
 #include <stdint.h>
 
 #define AUDIO_SILENCE_BYTE 0x80u
-#define AUDIO_VOICE_AMPLITUDE 48u
+#define AUDIO_VOICE_AMPLITUDE 32u
+#define AUDIO_FILTER_DIVISOR 2u
 #define AUDIO_WAVE_TABLE_SIZE 256u
 #define AUDIO_WAVE_TABLE_MASK 0xFFu
 #define AUDIO_WAVE_TABLE_SHIFT 24u
@@ -58,6 +59,7 @@ static const int8_t audio_wave_table[AUDIO_WAVE_TABLE_SIZE] = {
 static uint8_t audio_dma_buffers[2][AUDIO_BLOCK_SAMPLES]
     __attribute__((aligned(4096)));
 static struct AudioVoice audio_voices[AUDIO_MAX_VOICES];
+static int32_t audio_filter_state = 0;
 static uint32_t audio_fallback_frequency = 0;
 static bool audio_sb16_available = false;
 static bool audio_sb16_playing = false;
@@ -80,6 +82,7 @@ void audio_init(void) {
     pcspk_init();
     memset(audio_voices, 0, sizeof(audio_voices));
     memset(audio_dma_buffers, AUDIO_SILENCE_BYTE, sizeof(audio_dma_buffers));
+    audio_filter_state = 0;
     audio_fallback_frequency = 0;
 
     if (!sb16_init(
@@ -148,6 +151,15 @@ void audio_render_block(
                              ? 0
                              : (mix * (int32_t) AUDIO_VOICE_AMPLITUDE) /
                                    (int32_t) amplitude_sum;
+
+        // Gentle one-pole low-pass (~1.8 kHz) trims the remaining square-wave
+        // edge energy without losing the low odd harmonics that define it.
+        audio_filter_state =
+            (audio_filter_state * (int32_t) (AUDIO_FILTER_DIVISOR - 1) +
+             centered) /
+            (int32_t) AUDIO_FILTER_DIVISOR;
+        centered = audio_filter_state;
+
         if (centered < -128) {
             centered = -128;
         }
@@ -257,6 +269,7 @@ void audio_stop(void) {
 
     memset(audio_voices, 0, sizeof(audio_voices));
     memset(audio_dma_buffers, AUDIO_SILENCE_BYTE, sizeof(audio_dma_buffers));
+    audio_filter_state = 0;
     audio_fallback_frequency = 0;
 
     if (!audio_sb16_available) {
