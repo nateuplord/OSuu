@@ -91,8 +91,15 @@ void keyboard_isr(void) {
 
     if (keyboard_state.read_extended_mode) {
         keyboard_state.read_extended_mode = false;
-        if (keyboard_state.keyboard_input_on && (scancode & 0x80) == 0) {
-            switch (scancode) {
+
+        bool released = (scancode & 0x80) != 0;
+        uint8_t key = (uint8_t) (scancode & 0x7Fu);
+        uint8_t state_index = (uint8_t) (0x80u | key);
+        bool was_pressed = keyboard_state.key_pressed[state_index];
+        keyboard_state.key_pressed[state_index] = !released;
+
+        if (keyboard_state.keyboard_input_on && !released && !was_pressed) {
+            switch (key) {
                 case EXT_SCANCODE_UP:
                     keyboard_state.keyboard_buffer = KEYBOARD_KEY_UP;
                     break;
@@ -117,7 +124,12 @@ void keyboard_isr(void) {
 
     update_modifier_state(scancode);
 
-    if (keyboard_state.keyboard_input_on) {
+    bool released = (scancode & 0x80) != 0;
+    uint8_t key = (uint8_t) (scancode & 0x7Fu);
+    bool was_pressed = keyboard_state.key_pressed[key];
+    keyboard_state.key_pressed[key] = !released;
+
+    if (keyboard_state.keyboard_input_on && !released && !was_pressed) {
         const char *map = keyboard_state.shift_pressed
                             ? keyboard_scancode_1_to_ascii_shift_map
                             : keyboard_scancode_1_to_ascii_map;

@@ -18,6 +18,10 @@
 #define SNAKE_SOUND_START_MS 80u
 #define SNAKE_SOUND_KEY_HZ 1200u
 #define SNAKE_SOUND_KEY_MS 40u
+#define SNAKE_SOUND_UP_HZ 523u
+#define SNAKE_SOUND_RIGHT_HZ 587u
+#define SNAKE_SOUND_DOWN_HZ 659u
+#define SNAKE_SOUND_LEFT_HZ 784u
 #define SNAKE_SOUND_FOOD_HZ 880u
 #define SNAKE_SOUND_FOOD_MS 80u
 #define SNAKE_SOUND_GAME_OVER_HZ 220u
@@ -273,6 +277,25 @@ static void snake_game_over(void) {
     snake_return_to_shell();
 }
 
+static uint32_t snake_key_sound_hz(char key) {
+    switch (key) {
+        case KEYBOARD_KEY_UP:
+        case 'w':
+            return SNAKE_SOUND_UP_HZ;
+        case KEYBOARD_KEY_RIGHT:
+        case 'd':
+            return SNAKE_SOUND_RIGHT_HZ;
+        case KEYBOARD_KEY_DOWN:
+        case 's':
+            return SNAKE_SOUND_DOWN_HZ;
+        case KEYBOARD_KEY_LEFT:
+        case 'a':
+            return SNAKE_SOUND_LEFT_HZ;
+        default:
+            return SNAKE_SOUND_KEY_HZ;
+    }
+}
+
 static void snake_read_input(void) {
     char key = 0;
     poll_keyboard_buffer(&key);
@@ -280,7 +303,7 @@ static void snake_read_input(void) {
     if (key == 0) {
         return;
     }
-    audio_tone(SNAKE_SOUND_KEY_HZ, SNAKE_SOUND_KEY_MS);
+    audio_tone(snake_key_sound_hz(key), SNAKE_SOUND_KEY_MS);
 
     if (key == 'q' || key == '\x1B') {
         snake_game_over();

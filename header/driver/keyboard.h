@@ -11,9 +11,9 @@
 #define EXT_SCANCODE_LEFT 0x4B
 #define EXT_SCANCODE_RIGHT 0x4D
 
-#define KEYBOARD_KEY_UP    0x1C
-#define KEYBOARD_KEY_DOWN  0x1D
-#define KEYBOARD_KEY_LEFT  0x1E
+#define KEYBOARD_KEY_UP 0x1C
+#define KEYBOARD_KEY_DOWN 0x1D
+#define KEYBOARD_KEY_LEFT 0x1E
 #define KEYBOARD_KEY_RIGHT 0x1F
 
 #define EXT_SCANCODE_SHIFT_LEFT 0x2A
@@ -56,6 +56,14 @@ struct KeyboardDriverState {
 
     /// Indicate whether `Ctrl` key is pressed
     bool ctrl_pressed;
+
+    /**
+     * Physical key state, indexed by scancode with bit 7 cleared.
+     * Extended (E0-prefixed) keys use the upper half (`0x80 | scancode`).
+     * Used to suppress auto-repeat: a keypress is reported only on the
+     * make -> unpressed transition, not on every repeated make scancode.
+     */
+    bool key_pressed[256];
 
     /// Stores keyboard input values in ASCII
     char keyboard_buffer;
