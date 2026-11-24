@@ -5,6 +5,7 @@
 #include "driver/cmos.h"
 #include "driver/keyboard.h"
 #include "driver/pit.h"
+#include "driver/sb16.h"
 #include "memory/swap.h"
 
 struct TSSEntry _interrupt_tss_entry = {
@@ -78,6 +79,9 @@ void main_interrupt_handler(struct InterruptFrame frame) {
             break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
+            break;
+        case PIC1_OFFSET + IRQ_LPT2:
+            sb16_isr();
             break;
         case PIC2_OFFSET + (IRQ_CMOS - 8):
             cmos_isr();

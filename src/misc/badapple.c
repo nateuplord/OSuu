@@ -1,6 +1,6 @@
 #include "misc/badapple.h"
+#include "driver/audio.h"
 #include "driver/keyboard.h"
-#include "driver/pcspk.h"
 #include "driver/pit.h"
 #include "fs/ext2.h"
 #include "text/framebuffer.h"
@@ -26,11 +26,12 @@
 // copies in whole blocks based on the file's block count.
 #define PALETTE_BUF_SIZE (768 * 1024)
 #define FRAME_RLE_BUF_SIZE (1920 * 1024)
-#define MUSIC_BUF_SIZE (64 * 1024)
+#define MUSIC_BUF_SIZE (128 * 1024)
 
 #define MUSIC_HEADER_SIZE 16u
 #define MUSIC_NOTE_SIZE 8u
-#define MUSIC_VERSION 1u
+#define MUSIC_MIN_VERSION 1u
+#define MUSIC_VERSION 2u
 
 static uint8_t palette_buf[PALETTE_BUF_SIZE];
 static uint8_t frame_rle_buf[FRAME_RLE_BUF_SIZE];
@@ -96,7 +97,8 @@ static bool music_load(void) {
         music_buf[3] != 'U') {
         return false;
     }
-    if (read_u32_le(&music_buf[4]) != MUSIC_VERSION) {
+    uint32_t version = read_u32_le(&music_buf[4]);
+    if (version < MUSIC_MIN_VERSION || version > MUSIC_VERSION) {
         return false;
     }
 
@@ -122,9 +124,9 @@ static void music_update(uint32_t elapsed_ticks) {
         uint16_t frequency_hz = read_u16_le(&note[4]);
         uint16_t duration_ms = read_u16_le(&note[6]);
         if (frequency_hz == 0) {
-            pcspk_stop();
+            audio_stop();
         } else {
-            pcspk_tone(frequency_hz, duration_ms);
+            audio_tone(frequency_hz, duration_ms);
         }
         music_note_index++;
     }
@@ -235,6 +237,6 @@ void play_bad_apple(
     }
 
     if (music_loaded) {
-        pcspk_stop();
+        audio_stop();
     }
 }

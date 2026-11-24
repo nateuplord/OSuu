@@ -4,9 +4,9 @@
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
+#include "driver/audio.h"
 #include "driver/cmos.h"
 #include "driver/keyboard.h"
-#include "driver/pcspk.h"
 #include "driver/pit.h"
 #include "fs/ext2.h"
 #include "memory/paging.h"
@@ -60,7 +60,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     set_tss_register();
     pic_remap();
     pit_init(PIT_HZ);
-    pcspk_init();
+    audio_init();
     cmos_init();
     scheduler_init();
     initialize_filesystem_ext2();

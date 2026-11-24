@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Convert assets/bad-apple.mid into the PC-speaker score used by badapple.
+"""Convert assets/bad-apple.mid into the polyphonic score used by badapple.
 
-The MIDI file is a dense piano roll, so the generator extracts a single lead
-line: at each 10 ms sample it takes the highest sounding pitch. Note timings
-are then stretched so the score ends with the last video frame.
+The MIDI file is a dense piano roll, so the generator samples up to eight
+simultaneous pitches at each 10 ms step, keeping the highest voices. Note
+timings are then stretched so the score ends with the last video frame.
 
 Output format (all integers little-endian):
 
     magic[4]      "BAMU"
-    version:u32   1
+    version:u32   2
     note_count:u32
     song_ms:u32
     notes[note_count]:
@@ -32,6 +32,8 @@ VIDEO_FPS = 30
 SAMPLE_MS = 10
 MIN_NOTE_MS = 60
 DEFAULT_BPM = 120.0
+MAX_VOICES = 8
+SCORE_VERSION = 2
 
 
 class MidiError(ValueError):
@@ -171,15 +173,15 @@ def build_notes(division, tempo_events, note_events, max_tick, channel):
         (tick_to_ms(start), tick_to_ms(end), pitch) for start, end, pitch in notes
     ]
 
-    # Sample the highest sounding pitch on a fixed grid. We only need the
+    # Sample the highest few sounding pitches on a fixed grid. We only need the
     # expiry and pitch in the active heap, so this stays cheap even though the
     # MIDI has thousands of overlapping piano notes.
     note_times.sort()
     active_notes = []
     note_index = 0
     segments = []
-    current_pitch = 0
-    segment_start = 0.0
+    segment_starts = {}
+    previous_pitches = set()
 
     for sample in range(0, int(song_ms) + SAMPLE_MS, SAMPLE_MS):
         now_ms = min(sample, song_ms)
@@ -190,16 +192,18 @@ def build_notes(division, tempo_events, note_events, max_tick, channel):
         while active_notes and active_notes[0][0] <= now_ms:
             heapq.heappop(active_notes)
 
-        pitch = max(item[1] for item in active_notes) if active_notes else 0
-        if pitch != current_pitch:
-            if current_pitch:
-                segments.append((segment_start, now_ms, current_pitch))
-            current_pitch = pitch
-            segment_start = now_ms
+        pitches = {pitch for _, pitch in active_notes}
+        chosen = set(sorted(pitches, reverse=True)[:MAX_VOICES])
+        for pitch in previous_pitches - chosen:
+            segments.append((segment_starts.pop(pitch), now_ms, pitch))
+        for pitch in chosen - previous_pitches:
+            segment_starts[pitch] = now_ms
+        previous_pitches = chosen
 
-    if current_pitch:
-        segments.append((segment_start, song_ms, current_pitch))
+    for pitch, start in segment_starts.items():
+        segments.append((start, song_ms, pitch))
 
+    segments.sort()
     return segments, song_ms
 
 
@@ -215,7 +219,7 @@ def write_score(segments, song_ms, target_ms, output):
 
     with Path(output).open("wb") as out:
         out.write(b"BAMU")
-        out.write(struct.pack("<III", 1, len(notes), round(target_ms)))
+        out.write(struct.pack("<III", SCORE_VERSION, len(notes), round(target_ms)))
         for start, freq, duration in notes:
             out.write(struct.pack("<IHH", start, freq, duration))
 
