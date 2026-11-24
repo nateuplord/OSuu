@@ -70,7 +70,7 @@ QEMU_ISO  := -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 QEMU_AUDIO ?= -audiodev pipewire,id=snd0 -machine pcspk-audiodev=snd0
 
 run: clean build
-	@$(QEMU) -s $(QEMU_DISK) $(QEMU_ISO) $(QEMU_AUDIO)
+	@$(QEMU) $(QEMU_DISK) $(QEMU_ISO) $(QEMU_AUDIO)
 
 test-sample: clean build
 	@$(QEMU) -s -S -drive file=$(SAMPLE_IMAGE),format=raw,if=ide,index=0,media=disk $(QEMU_ISO) $(QEMU_AUDIO)
