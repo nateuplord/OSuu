@@ -23,6 +23,7 @@ static uint8_t shell_printf_row = 0;
 static uint8_t shell_printf_col = 0;
 static uint8_t shell_printf_fg = 0x0F;
 static uint8_t shell_printf_bg = 0;
+static uint32_t shell_input_display_length = 0;
 static uint8_t shell_file_buffer[USER_FILE_BUFFER_SIZE];
 static char shell_arg_storage[SHELL_MAX_ARGS - 1][SHELL_BUFFER_SIZE];
 static char shell_find_path[SHELL_BUFFER_SIZE];
@@ -602,32 +603,55 @@ static void shell_print_prompt(void) {
 
 static void shell_refresh_input_line(void) {
     Line *line = &shell_history.buffer[history_idx];
-    uint8_t input_row = shell_printf_row;
-    uint32_t line_length = (uint32_t) str_len(line->buffer);
+    char path[SHELL_BUFFER_SIZE];
+    shell_get_current_path(path);
 
-    for (uint8_t col = 0; col < FRAMEBUFFER_WIDTH; col++) {
-        framebuffer_write(input_row, col, ' ', 0xF, 0);
+    uint32_t line_length = (uint32_t) str_len(line->buffer);
+    uint32_t prompt_length =
+        str_len("User@OSuu:") + str_len(path) + str_len("$ ");
+    uint32_t start_row = shell_printf_row;
+    uint32_t start_col = shell_printf_col;
+    uint32_t screen_size = FRAMEBUFFER_HEIGHT * FRAMEBUFFER_WIDTH;
+    uint32_t prompt_end_cell =
+        start_row * FRAMEBUFFER_WIDTH + start_col + prompt_length;
+    uint32_t max_length = line_length > shell_input_display_length
+                            ? line_length
+                            : shell_input_display_length;
+    uint32_t last_cell = prompt_end_cell + max_length;
+    if (last_cell >= screen_size)
+        last_cell = screen_size - 1;
+
+    // Clear every row the prompt or either version of the input occupied. A
+    // long line wraps, so clearing just one row leaves stale characters behind.
+    uint32_t last_row = last_cell / FRAMEBUFFER_WIDTH;
+    for (uint32_t r = start_row; r <= last_row && r < FRAMEBUFFER_HEIGHT; ++r) {
+        for (uint32_t c = 0; c < FRAMEBUFFER_WIDTH; ++c) {
+            framebuffer_write((uint8_t) r, (uint8_t) c, ' ', 0xF, 0);
+        }
     }
 
-    shell_printf_col = 0;
-    // Reset the cursor position
-    framebuffer_set_cursor(input_row, 0);
+    // Redraw the prompt, then the whole buffer starting where the prompt ends.
+    shell_printf_row = (uint8_t) start_row;
+    shell_printf_col = (uint8_t) start_col;
     shell_print_prompt();
-    uint8_t input_start_col = shell_printf_col;
+    uint32_t input_start_cell =
+        shell_printf_row * FRAMEBUFFER_WIDTH + shell_printf_col;
     for (
-        uint32_t i = 0;
-        i < line_length && input_start_col + i < FRAMEBUFFER_WIDTH; i++
+        uint32_t i = 0; i < line_length && input_start_cell + i < screen_size;
+        ++i
     ) {
+        uint32_t cell = input_start_cell + i;
         framebuffer_write(
-            input_row, input_start_col + i, line->buffer[i], 0xF, 0
+            (uint8_t) (cell / FRAMEBUFFER_WIDTH),
+            (uint8_t) (cell % FRAMEBUFFER_WIDTH), line->buffer[i], 0xF, 0
         );
     }
+    shell_input_display_length = line_length;
 
-    uint32_t cursor_col = input_start_col + (uint32_t) cursor_pos;
-    if (cursor_col >= FRAMEBUFFER_WIDTH)
-        cursor_col = FRAMEBUFFER_WIDTH - 1;
-    shell_printf_col = input_start_col;
-    framebuffer_set_cursor(input_row, (uint8_t) cursor_col);
+    uint8_t cursor_row;
+    uint8_t cursor_col;
+    shell_get_cursor_position(&cursor_row, &cursor_col);
+    framebuffer_set_cursor(cursor_row, cursor_col);
 }
 
 void shell_get_cursor_position(
@@ -675,6 +699,8 @@ static void shell_show_history_line(
         previous_length > line_length ? previous_length : line_length;
     uint32_t start = shell_printf_row * FRAMEBUFFER_WIDTH + shell_printf_col;
     uint32_t screen_size = FRAMEBUFFER_HEIGHT * FRAMEBUFFER_WIDTH;
+
+    shell_input_display_length = display_length;
 
     for (uint32_t i = 0; i < display_length && start + i < screen_size; i++) {
         char character = i < line_length ? line[i] : ' ';
@@ -1141,6 +1167,7 @@ void start_shell() {
     shell_printf_col = 0;
     shell_printf_fg = 0x0F;
     shell_printf_bg = 0;
+    shell_input_display_length = 0;
     shell_history.buffer[0].length = 0;
     shell_history.buffer[0].buffer[0] = '\0';
     shell_print_prompt();
@@ -1232,6 +1259,7 @@ int enter_command() {
     current_line->length = 0;
     current_line->buffer[0] = '\0';
     cursor_pos = 0;
+    shell_input_display_length = 0;
     history_view_idx = -1;
     history_draft_saved = false;
     shell_print_prompt();

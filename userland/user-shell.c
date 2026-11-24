@@ -6,11 +6,6 @@
 static uint8_t row = 0;
 static uint8_t col = 0;
 
-static void new_line(void) {
-    ++row;
-    col = 0;
-}
-
 int main(void) {
     keyboard_state_activate();
     start_shell();
@@ -25,7 +20,8 @@ int main(void) {
 
         switch (c) {
             case '\n':
-                new_line();
+                // Command output and the next prompt are emitted by the shell
+                // itself; do not track a second, competing row here.
                 enter_command();
                 shell_get_cursor_position(&row, &col);
                 break;
@@ -46,16 +42,12 @@ int main(void) {
                 shell_history_down(&row, &col);
                 break;
             default:
-                framebuffer_write(row, col, c, 0xF, 0);
-                ++col;
-
-                if (col >= FRAMEBUFFER_WIDTH) {
-                    new_line();
-                }
+                // add_char() redraws the whole input line (including wrapped
+                // rows) and positions the cursor; don't overwrite it here.
                 add_char(c);
+                shell_get_cursor_position(&row, &col);
                 break;
         }
-        framebuffer_set_cursor(row, col);
     }
 
     return 0;

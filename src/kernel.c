@@ -94,15 +94,12 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
         .is_directory = false,
     };
 
-    // Different priorities exercise the priority scheduler; the lower
-    // priority instance runs while the higher one waits for keyboard input.
-    static const uint8_t process_priorities[2] = {2, 1};
-    for (uint32_t i = 0; i < 2; i++) {
-        int32_t create_status =
-            process_create_user_process(request, process_priorities[i]);
-        if (create_status != PROCESS_CREATE_SUCCESS) {
-            halt_with_error(create_status);
-        }
+    // One shell owns the framebuffer and keyboard. Multiple instances would
+    // fight over the shared kernel cursor state and the single keyboard buffer.
+    int32_t create_status =
+        process_create_user_process(request, PROCESS_PRIORITY_DEFAULT);
+    if (create_status != PROCESS_CREATE_SUCCESS) {
+        halt_with_error(create_status);
     }
 
     scheduler_start();
