@@ -3,6 +3,9 @@ ASM  = nasm
 LINK = ld
 CC   = gcc
 
+# ISO builder - upstream is grub-mkrescue, some distros rename it grub2-mkrescue
+GRUB_MKRESCUE := $(shell command -v grub-mkrescue 2>/dev/null || command -v grub2-mkrescue 2>/dev/null)
+
 # Directory
 SOURCE_FOLDER = src
 HEADER_FOLDER = header
@@ -59,7 +62,11 @@ iso: kernel
 	@mkdir -p                       $(OUTPUT_FOLDER)/iso/boot/grub
 	@cp $(OUTPUT_FOLDER)/kernel     $(OUTPUT_FOLDER)/iso/boot/
 	@cp $(BOOT_FOLDER)/grub.cfg     $(OUTPUT_FOLDER)/iso/boot/grub/
-	@grub2-mkrescue -o              $(OUTPUT_FOLDER)/$(ISO_NAME).iso $(OUTPUT_FOLDER)/iso
+	@if [ -z "$(GRUB_MKRESCUE)" ]; then \
+		echo "error: grub-mkrescue or grub2-mkrescue not found"; \
+		exit 1; \
+	fi
+	@$(GRUB_MKRESCUE) -o            $(OUTPUT_FOLDER)/$(ISO_NAME).iso $(OUTPUT_FOLDER)/iso
 	@rm -r                          $(OUTPUT_FOLDER)/iso/
 
 -include $(OBJS:.o=.d)
