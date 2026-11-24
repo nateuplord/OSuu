@@ -31,9 +31,10 @@ static struct BlockBuffer shell_find_directory_buffer;
 static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
-const char *builtin_cmd[] = {"sudo", "cd",  "ls",   "mkdir",    "cat",
-                             "grep", "cp",  "mv",   "rm",       "find",
-                             "echo", "pwd", "exit", "badapple", "exec"};
+const char *builtin_cmd[] = {"sudo", "cd",       "ls",   "mkdir",
+                             "cat",  "grep",     "cp",   "mv",
+                             "rm",   "find",     "echo", "pwd",
+                             "exit", "badapple", "exec", "ps"};
 
 int (*builtin_func[])(char **) = {
     &shell_sudo,
@@ -50,7 +51,8 @@ int (*builtin_func[])(char **) = {
     &shell_pwd,
     &shell_exit,
     &shell_badapple,
-    &shell_exec
+    &shell_exec,
+    &shell_ps
 };
 
 int streq(
@@ -475,6 +477,46 @@ static void shell_printf_n(
 
 static void shell_printf(const char *message) {
     shell_printf_n(message, (uint32_t) str_len(message));
+}
+
+static void shell_print_uint_field(
+    uint32_t value,
+    uint8_t width
+) {
+    char digits[11];
+    uint32_t length = 0;
+    if (value == 0) {
+        digits[length++] = '0';
+    }
+    while (value != 0) {
+        digits[length++] = (char) ('0' + value % 10);
+        value /= 10;
+    }
+
+    char reversed[11];
+    for (uint32_t i = 0; i < length; i++) {
+        reversed[i] = digits[length - 1 - i];
+    }
+
+    for (uint32_t i = length; i < width; i++) {
+        shell_printf_write(" ", 1);
+    }
+    shell_printf_n(reversed, length);
+}
+
+static const char *shell_process_state_name(uint8_t state) {
+    switch (state) {
+        case PROCESS_STATE_INACTIVE:
+            return "INACTIVE";
+        case PROCESS_STATE_READY:
+            return "READY";
+        case PROCESS_STATE_RUNNING:
+            return "RUNNING";
+        case PROCESS_STATE_BLOCKED:
+            return "BLOCKED";
+        default:
+            return "UNKNOWN";
+    }
 }
 
 static void shell_print_error(
@@ -1967,6 +2009,28 @@ int shell_exec(char **args) {
     int32_t status = exec_process(request);
     if (status != 0) {
         shell_print_error("exec: ", args[1], ": Unable to execute program");
+        shell_printf("\n");
+    }
+    return 1;
+}
+
+int shell_ps(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf("Usage: ps\nList running processes.\n");
+        return 1;
+    }
+
+    struct ProcessInfo processes[PROCESS_COUNT_MAX];
+    uint32_t count = process_list(processes, PROCESS_COUNT_MAX);
+
+    shell_printf("PID       STATE     PRI  COMMAND\n");
+    for (uint32_t i = 0; i < count; i++) {
+        shell_print_uint_field(processes[i].pid, 8);
+        shell_printf("  ");
+        shell_printf(shell_process_state_name(processes[i].state));
+        shell_print_uint_field(processes[i].priority, 10);
+        shell_printf("  ");
+        shell_printf(processes[i].name);
         shell_printf("\n");
     }
     return 1;

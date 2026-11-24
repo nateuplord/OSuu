@@ -234,6 +234,16 @@ int32_t process_create_user_process(
 int32_t process_exec_current(struct EXT2DriverRequest request);
 
 /**
+ * Copy metadata for active processes into `buffer` in PCB-index order.
+ *
+ * @return Number of processes written.
+ */
+uint32_t process_list_snapshot(
+    struct ProcessInfo *buffer,
+    uint32_t capacity
+);
+
+/**
  * Destroy process then release page directory and process control block
  * 
  * @param pid Process ID to delete

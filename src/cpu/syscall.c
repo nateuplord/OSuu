@@ -155,6 +155,13 @@ void syscall(struct InterruptFrame frame) {
             break;
         }
 
+        case SYSCALL_PROCESS_LIST:
+            *(uint32_t *) frame.cpu.general.ebx = process_list_snapshot(
+                (struct ProcessInfo *) frame.cpu.general.ecx,
+                frame.cpu.general.edx
+            );
+            break;
+
         default:
             break;
     }

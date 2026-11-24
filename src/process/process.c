@@ -365,6 +365,38 @@ cleanup_new_image:
     return retcode;
 }
 
+uint32_t process_list_snapshot(
+    struct ProcessInfo *buffer,
+    uint32_t capacity
+) {
+    uint32_t written = 0;
+    for (uint32_t i = 0; i < PROCESS_COUNT_MAX; ++i) {
+        if (!process_manager_state.is_process_active[i] ||
+            _process_list[i].metadata.state == PROCESS_STATE_INACTIVE) {
+            continue;
+        }
+        if (buffer == NULL || written >= capacity) {
+            continue;
+        }
+
+        struct ProcessInfo *info = &buffer[written++];
+        info->pid = _process_list[i].metadata.pid;
+        info->state = (uint8_t) _process_list[i].metadata.state;
+        info->priority = _process_list[i].metadata.priority;
+
+        uint32_t name_len = 0;
+        while (_process_list[i].metadata.name[name_len] != '\0') {
+            ++name_len;
+        }
+        if (name_len >= PROCESS_NAME_LENGTH_MAX) {
+            name_len = PROCESS_NAME_LENGTH_MAX - 1;
+        }
+        memcpy(info->name, _process_list[i].metadata.name, name_len);
+        info->name[name_len] = '\0';
+    }
+    return written;
+}
+
 bool process_destroy(uint32_t pid) {
     int32_t index = -1;
     for (uint32_t i = 0; i < PROCESS_COUNT_MAX; ++i) {

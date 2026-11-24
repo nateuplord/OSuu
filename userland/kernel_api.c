@@ -147,3 +147,14 @@ int32_t exec_process(struct EXT2DriverRequest request) {
     syscall(SYSCALL_PROCESS_EXEC, (uint32_t) &request, (uint32_t) &result, 0);
     return result;
 }
+
+uint32_t process_list(
+    struct ProcessInfo *buffer,
+    uint32_t capacity
+) {
+    uint32_t count = 0;
+    syscall(
+        SYSCALL_PROCESS_LIST, (uint32_t) &count, (uint32_t) buffer, capacity
+    );
+    return count;
+}

@@ -74,7 +74,7 @@ void play_bad_apple(
 void get_keyboard_buffer(char *buf);
 void keyboard_state_activate(void);
 
-/** Process management - backed by int 0x30 services 17-21. */
+/** Process management - backed by int 0x30 services 17-22. */
 __attribute__((noreturn)) void exit_process(void);
 __attribute__((noreturn)) void exit_all_processes(void);
 uint32_t getpid(void);
@@ -85,5 +85,9 @@ void yield(void);
  * returns to this instruction stream.
  */
 int32_t exec_process(struct EXT2DriverRequest request);
+uint32_t process_list(
+    struct ProcessInfo *buffer,
+    uint32_t capacity
+);
 
 #endif
