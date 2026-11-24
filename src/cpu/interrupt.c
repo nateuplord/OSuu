@@ -2,6 +2,7 @@
 #include "boot/kernel-entrypoint.h"
 #include "cpu/portio.h"
 #include "cpu/syscall.h"
+#include "driver/cmos.h"
 #include "driver/keyboard.h"
 #include "driver/pit.h"
 #include "memory/swap.h"
@@ -77,6 +78,9 @@ void main_interrupt_handler(struct InterruptFrame frame) {
             break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
+            break;
+        case PIC2_OFFSET + (IRQ_CMOS - 8):
+            cmos_isr();
             break;
         case 14:
             handle_page_fault(frame.int_stack.error_code);

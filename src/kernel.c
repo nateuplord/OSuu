@@ -4,6 +4,7 @@
 #include "cpu/gdt.h"
 #include "cpu/idt.h"
 #include "cpu/interrupt.h"
+#include "driver/cmos.h"
 #include "driver/keyboard.h"
 #include "driver/pit.h"
 #include "fs/ext2.h"
@@ -58,6 +59,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     set_tss_register();
     pic_remap();
     pit_init(100);
+    cmos_init();
     scheduler_init();
     initialize_filesystem_ext2();
     swap_init();
