@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """Convert assets/bad-apple.mid into the polyphonic score used by badapple.
 
-The MIDI file is a dense piano roll, so the generator samples up to eight
-simultaneous pitches at each 10 ms step, keeping the highest voices. Note
-timings are then stretched so the score ends with the last video frame.
+The MIDI file is a dense piano roll. The generator reconstructs individual
+notes, then samples the sounding set every 10 ms and emits at most eight
+score segments at a time. Note timings are stretched so the score ends with
+the last video frame.
 
 Output format (all integers little-endian):
 
     magic[4]      "BAMU"
-    version:u32   2
+    version:u32   3
     note_count:u32
     song_ms:u32
     notes[note_count]:
         start_ms:u32
-        freq_hz:u16   (0 means silence, though the generator omits rests)
+        freq_hz:u16   (0 means a rest; the generator omits rests)
         duration_ms:u16
 """
 
@@ -31,9 +32,11 @@ VIDEO_FRAMES = 6572
 VIDEO_FPS = 30
 SAMPLE_MS = 10
 MIN_NOTE_MS = 60
+MIN_HOLD_MS = 80
+CENTER_PITCH = 60
 DEFAULT_BPM = 120.0
 MAX_VOICES = 8
-SCORE_VERSION = 2
+SCORE_VERSION = 3
 
 
 class MidiError(ValueError):
@@ -117,9 +120,9 @@ def parse_midi(path):
                 index += 2
                 channel = status & 0x0F
                 if event_type == 0x90 and data2 > 0:
-                    note_events.append((tick, True, data1, channel))
+                    note_events.append((tick, True, data1, channel, data2))
                 elif event_type == 0x80 or (event_type == 0x90 and data2 == 0):
-                    note_events.append((tick, False, data1, channel))
+                    note_events.append((tick, False, data1, channel, 0))
             elif event_type in (0xC0, 0xD0):
                 index += 1
             else:
@@ -131,9 +134,8 @@ def parse_midi(path):
 
 def build_notes(division, tempo_events, note_events, max_tick, channel):
     # The second track is a "Xylophone" placeholder whose note-ons all have
-    # velocity 0;
-    # treating those as note-offs would prematurely close piano notes. Keep the
-    # channel that actually contains sounding notes.
+    # velocity 0; treating those as note-offs would prematurely close piano
+    # notes. Keep the channel that actually contains sounding notes.
     note_events = [event for event in note_events if event[3] == channel]
 
     def tick_to_ms(tick):
@@ -149,59 +151,99 @@ def build_notes(division, tempo_events, note_events, max_tick, channel):
         ms += (tick - previous_tick) * micros / (1000.0 * division)
         return ms
 
-    # Re-striking a pitch implicitly ends the previous note; a note-off ends
-    # the most recent one. This matters for the repeated piano-roll notes.
+    # A note-off at the same tick as a re-strike must close the old note first,
+    # otherwise the new note is opened and immediately closed.
     notes = []
     active = defaultdict(list)
-    for tick, is_on, pitch, _ in sorted(
-        note_events, key=lambda event: (event[0], not event[1])
+    for tick, is_on, pitch, _, velocity in sorted(
+        note_events, key=lambda event: (event[0], event[1])
     ):
         if is_on:
             if active[pitch]:
-                start = active[pitch].pop(0)
-                notes.append((start, tick, pitch))
-            active[pitch].append(tick)
+                start, old_velocity = active[pitch].pop(0)
+                notes.append((start, tick, pitch, old_velocity))
+            active[pitch].append((tick, velocity))
         elif active[pitch]:
-            start = active[pitch].pop()
-            notes.append((start, tick, pitch))
+            start, old_velocity = active[pitch].pop()
+            notes.append((start, tick, pitch, old_velocity))
     for pitch, starts in active.items():
-        for start in starts:
-            notes.append((start, max_tick, pitch))
+        for start, velocity in starts:
+            notes.append((start, max_tick, pitch, velocity))
 
     song_ms = tick_to_ms(max_tick)
-    note_times = [
-        (tick_to_ms(start), tick_to_ms(end), pitch) for start, end, pitch in notes
-    ]
-
-    # Sample the highest few sounding pitches on a fixed grid. We only need the
-    # expiry and pitch in the active heap, so this stays cheap even though the
-    # MIDI has thousands of overlapping piano notes.
+    note_times = []
+    for note_id, (start, end, pitch, velocity) in enumerate(notes):
+        note_times.append(
+            (tick_to_ms(start), tick_to_ms(end), pitch, velocity, note_id)
+        )
     note_times.sort()
+
+    # Sample the sounding notes on a fixed grid. Active entries are keyed by
+    # note id so a re-struck pitch starts a fresh segment instead of merging
+    # into the previous one.
     active_notes = []
     note_index = 0
     segments = []
     segment_starts = {}
-    previous_pitches = set()
+    segment_pitches = {}
+    previous_ids = set()
 
     for sample in range(0, int(song_ms) + SAMPLE_MS, SAMPLE_MS):
         now_ms = min(sample, song_ms)
         while note_index < len(note_times) and note_times[note_index][0] <= now_ms:
-            start, end, pitch = note_times[note_index]
-            heapq.heappush(active_notes, (end, pitch))
+            start, end, pitch, velocity, note_id = note_times[note_index]
+            heapq.heappush(active_notes, (end, note_id, pitch, velocity, start))
             note_index += 1
         while active_notes and active_notes[0][0] <= now_ms:
             heapq.heappop(active_notes)
 
-        pitches = {pitch for _, pitch in active_notes}
-        chosen = set(sorted(pitches, reverse=True)[:MAX_VOICES])
-        for pitch in previous_pitches - chosen:
-            segments.append((segment_starts.pop(pitch), now_ms, pitch))
-        for pitch in chosen - previous_pitches:
-            segment_starts[pitch] = now_ms
-        previous_pitches = chosen
+        by_id = {item[1]: item for item in active_notes}
+        chosen = set()
+        if active_notes:
+            bass = min(active_notes, key=lambda item: (item[2], item[1]))[1]
+            melody = max(active_notes, key=lambda item: (item[2], -item[1]))[1]
+            chosen.add(bass)
+            chosen.add(melody)
 
-    for pitch, start in segment_starts.items():
-        segments.append((start, song_ms, pitch))
+            # Keep a note briefly even if a newer note outranks it; otherwise
+            # dense passages make voices flicker between neighbouring pitches.
+            for note_id in sorted(
+                previous_ids, key=lambda item: segment_starts.get(item, 0)
+            ):
+                if (
+                    note_id in by_id
+                    and now_ms - segment_starts[note_id] < MIN_HOLD_MS
+                    and len(chosen) < MAX_VOICES
+                ):
+                    chosen.add(note_id)
+
+            def priority(item):
+                end, _, pitch, velocity, start = item
+                remaining = end - now_ms
+                return (
+                    remaining,
+                    velocity,
+                    -abs(pitch - CENTER_PITCH),
+                    -pitch,
+                    -start,
+                )
+
+            for item in sorted(active_notes, key=priority, reverse=True):
+                if len(chosen) >= MAX_VOICES:
+                    break
+                chosen.add(item[1])
+
+        for note_id in sorted(previous_ids - chosen):
+            segments.append(
+                (segment_starts.pop(note_id), now_ms, segment_pitches.pop(note_id))
+            )
+        for note_id in sorted(chosen - previous_ids):
+            segment_starts[note_id] = now_ms
+            segment_pitches[note_id] = by_id[note_id][2]
+        previous_ids = chosen
+
+    for note_id, start in segment_starts.items():
+        segments.append((start, song_ms, segment_pitches[note_id]))
 
     segments.sort()
     return segments, song_ms

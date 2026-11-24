@@ -31,7 +31,7 @@
 #define MUSIC_HEADER_SIZE 16u
 #define MUSIC_NOTE_SIZE 8u
 #define MUSIC_MIN_VERSION 1u
-#define MUSIC_VERSION 2u
+#define MUSIC_VERSION 3u
 
 static uint8_t palette_buf[PALETTE_BUF_SIZE];
 static uint8_t frame_rle_buf[FRAME_RLE_BUF_SIZE];
@@ -78,7 +78,7 @@ static uint32_t music_note_count = 0;
 static uint32_t music_note_index = 0;
 
 /**
- * Load the optional PC-speaker score. A missing or invalid file just leaves
+ * Load the optional Bad Apple audio score. A missing or invalid file leaves
  * the video silent, so the old disk image still works.
  */
 static bool music_load(void) {
@@ -124,7 +124,9 @@ static void music_update(uint32_t elapsed_ticks) {
         uint16_t frequency_hz = read_u16_le(&note[4]);
         uint16_t duration_ms = read_u16_le(&note[6]);
         if (frequency_hz == 0) {
-            audio_stop();
+            // A score rest should not tear down the SB16 stream; fade any
+            // sounding voices instead.
+            audio_release(0);
         } else {
             audio_tone(frequency_hz, duration_ms);
         }

@@ -6,11 +6,12 @@
 #include <stdint.h>
 
 #define AUDIO_SILENCE_BYTE 0x80u
-#define AUDIO_VOICE_AMPLITUDE 120u
-#define AUDIO_PHASE_HALF 0x80000000u
+#define AUDIO_VOICE_AMPLITUDE 112u
+#define AUDIO_WAVE_TABLE_SIZE 256u
+#define AUDIO_WAVE_TABLE_SHIFT 24u
 #define AUDIO_PHASE_SCALE 65536u
-#define AUDIO_ATTACK_SAMPLES ((AUDIO_SAMPLE_RATE_HZ * 2u) / 1000u)
-#define AUDIO_RELEASE_SAMPLES ((AUDIO_SAMPLE_RATE_HZ * 6u) / 1000u)
+#define AUDIO_ATTACK_SAMPLES ((AUDIO_SAMPLE_RATE_HZ * 4u) / 1000u)
+#define AUDIO_RELEASE_SAMPLES ((AUDIO_SAMPLE_RATE_HZ * 12u) / 1000u)
 #define AUDIO_MAX_DURATION_MS 60000u
 
 struct AudioVoice {
@@ -18,13 +19,42 @@ struct AudioVoice {
     uint32_t phase_step;
     uint32_t remaining_samples;
     uint32_t age_samples;
+    uint32_t frequency_hz;
     bool active;
+};
+
+// One cycle of a sine wave, scaled to int8_t range. A smooth waveform avoids
+// the harsh upper harmonics of the old square-wave PC-speaker-style mixer.
+static const int8_t audio_wave_table[AUDIO_WAVE_TABLE_SIZE] = {
+    0,    3,    6,    9,    12,   16,   19,   22,   25,   28,   31,   34,
+    37,   40,   43,   46,   49,   51,   54,   57,   60,   63,   65,   68,
+    71,   73,   76,   78,   81,   83,   85,   88,   90,   92,   94,   96,
+    98,   100,  102,  104,  106,  107,  109,  111,  112,  113,  115,  116,
+    117,  118,  120,  121,  122,  122,  123,  124,  125,  125,  126,  126,
+    126,  127,  127,  127,  127,  127,  127,  127,  126,  126,  126,  125,
+    125,  124,  123,  122,  122,  121,  120,  118,  117,  116,  115,  113,
+    112,  111,  109,  107,  106,  104,  102,  100,  98,   96,   94,   92,
+    90,   88,   85,   83,   81,   78,   76,   73,   71,   68,   65,   63,
+    60,   57,   54,   51,   49,   46,   43,   40,   37,   34,   31,   28,
+    25,   22,   19,   16,   12,   9,    6,    3,    0,    -3,   -6,   -9,
+    -12,  -16,  -19,  -22,  -25,  -28,  -31,  -34,  -37,  -40,  -43,  -46,
+    -49,  -51,  -54,  -57,  -60,  -63,  -65,  -68,  -71,  -73,  -76,  -78,
+    -81,  -83,  -85,  -88,  -90,  -92,  -94,  -96,  -98,  -100, -102, -104,
+    -106, -107, -109, -111, -112, -113, -115, -116, -117, -118, -120, -121,
+    -122, -122, -123, -124, -125, -125, -126, -126, -126, -127, -127, -127,
+    -127, -127, -127, -127, -126, -126, -126, -125, -125, -124, -123, -122,
+    -122, -121, -120, -118, -117, -116, -115, -113, -112, -111, -109, -107,
+    -106, -104, -102, -100, -98,  -96,  -94,  -92,  -90,  -88,  -85,  -83,
+    -81,  -78,  -76,  -73,  -71,  -68,  -65,  -63,  -60,  -57,  -54,  -51,
+    -49,  -46,  -43,  -40,  -37,  -34,  -31,  -28,  -25,  -22,  -19,  -16,
+    -12,  -9,   -6,   -3,
 };
 
 // Two page-aligned blocks: DMA channel 1 cannot cross a 64 KiB boundary.
 static uint8_t audio_dma_buffers[2][AUDIO_BLOCK_SAMPLES]
     __attribute__((aligned(4096)));
 static struct AudioVoice audio_voices[AUDIO_MAX_VOICES];
+static uint32_t audio_fallback_frequency = 0;
 static bool audio_sb16_available = false;
 static bool audio_sb16_playing = false;
 
@@ -46,6 +76,7 @@ void audio_init(void) {
     pcspk_init();
     memset(audio_voices, 0, sizeof(audio_voices));
     memset(audio_dma_buffers, AUDIO_SILENCE_BYTE, sizeof(audio_dma_buffers));
+    audio_fallback_frequency = 0;
 
     if (!sb16_init(
             audio_dma_buffers[0], audio_dma_buffers[1], AUDIO_BLOCK_SAMPLES
@@ -83,9 +114,11 @@ void audio_render_block(
                             AUDIO_RELEASE_SAMPLES;
             }
 
-            mix += (voice->phase & AUDIO_PHASE_HALF) ? (int32_t) amplitude
-                                                     : -(int32_t) amplitude;
+            int32_t wave =
+                audio_wave_table[voice->phase >> AUDIO_WAVE_TABLE_SHIFT];
+            mix += (wave * (int32_t) amplitude) / 127;
             voice_count++;
+
             voice->phase += voice->phase_step;
             voice->age_samples++;
             voice->remaining_samples--;
@@ -119,6 +152,7 @@ void audio_tone(
 
     if (!audio_sb16_available) {
         pcspk_tone(frequency_hz, duration_ms);
+        audio_fallback_frequency = frequency_hz;
         audio_write_eflags(flags);
         return;
     }
@@ -158,6 +192,7 @@ void audio_tone(
         voice->remaining_samples = 1;
     }
     voice->age_samples = 0;
+    voice->frequency_hz = frequency_hz;
     voice->active = true;
 
     if (!audio_sb16_playing) {
@@ -169,12 +204,40 @@ void audio_tone(
     audio_write_eflags(flags);
 }
 
+void audio_release(uint32_t frequency_hz) {
+    uint32_t flags = audio_read_eflags();
+    __asm__ volatile("cli");
+
+    if (!audio_sb16_available) {
+        if (frequency_hz == 0 || frequency_hz == audio_fallback_frequency) {
+            pcspk_stop();
+            audio_fallback_frequency = 0;
+        }
+    } else {
+        for (uint32_t i = 0; i < AUDIO_MAX_VOICES; i++) {
+            struct AudioVoice *voice = &audio_voices[i];
+            if (!voice->active) {
+                continue;
+            }
+            if (frequency_hz != 0 && voice->frequency_hz != frequency_hz) {
+                continue;
+            }
+            if (voice->remaining_samples > AUDIO_RELEASE_SAMPLES) {
+                voice->remaining_samples = AUDIO_RELEASE_SAMPLES;
+            }
+        }
+    }
+
+    audio_write_eflags(flags);
+}
+
 void audio_stop(void) {
     uint32_t flags = audio_read_eflags();
     __asm__ volatile("cli");
 
     memset(audio_voices, 0, sizeof(audio_voices));
     memset(audio_dma_buffers, AUDIO_SILENCE_BYTE, sizeof(audio_dma_buffers));
+    audio_fallback_frequency = 0;
 
     if (!audio_sb16_available) {
         pcspk_stop();

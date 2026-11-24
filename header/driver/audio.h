@@ -9,8 +9,9 @@
 /// SB16 playback format: 8-bit unsigned mono.
 #define AUDIO_SAMPLE_RATE_HZ 22050u
 
-/// Samples per DMA block; two blocks are kept in flight.
-#define AUDIO_BLOCK_SAMPLES 2048u
+/// Samples per DMA block; two blocks are kept in flight. Small blocks keep the
+/// delay between audio_tone() and audible output under ~12 ms.
+#define AUDIO_BLOCK_SAMPLES 256u
 
 /**
  * Initialize the polyphonic mixer. Uses the SB16 when present and falls back
@@ -24,7 +25,13 @@ void audio_tone(
     uint32_t duration_ms
 );
 
-/** Silence every voice immediately. */
+/**
+ * Fade out one pitch (or every pitch when frequency_hz is 0) without stopping
+ * DMA playback. Used by the score format's silence records.
+ */
+void audio_release(uint32_t frequency_hz);
+
+/** Silence every voice immediately and stop playback. */
 void audio_stop(void);
 
 /** Render one DMA block of unsigned 8-bit PCM samples. */
