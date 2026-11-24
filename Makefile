@@ -67,7 +67,7 @@ QEMU_ISO  := -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 
 # Enable the emulated PC speaker. Override for headless runs, e.g.
 #   make run QEMU_AUDIO="-audiodev none,id=snd0 -machine pcspk-audiodev=snd0"
-QEMU_AUDIO ?= -audiodev alsa,id=snd0 -machine pcspk-audiodev=snd0
+QEMU_AUDIO ?= -audiodev pipewire,id=snd0 -machine pcspk-audiodev=snd0
 
 run: clean build
 	@$(QEMU) -s $(QEMU_DISK) $(QEMU_ISO) $(QEMU_AUDIO)
