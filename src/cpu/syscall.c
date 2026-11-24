@@ -1,6 +1,7 @@
 #include "cpu/syscall.h"
 #include "driver/cmos.h"
 #include "driver/keyboard.h"
+#include "driver/pit.h"
 #include "fs/ext2.h"
 #include "gui/gui.h"
 #include "misc/badapple.h"
@@ -224,6 +225,10 @@ void syscall(struct InterruptFrame frame) {
 
         case SYSCALL_CMOS_TICKS:
             *(uint32_t *) frame.cpu.general.ebx = cmos_get_periodic_ticks();
+            break;
+
+        case SYSCALL_TIME_TICKS_MS:
+            *(uint32_t *) frame.cpu.general.ebx = pit_get_ms();
             break;
 
         default:

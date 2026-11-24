@@ -24,6 +24,7 @@ static uint8_t shell_printf_row = 0;
 static uint8_t shell_printf_col = 0;
 static uint8_t shell_printf_fg = 0x0F;
 static uint8_t shell_printf_bg = 0;
+static bool shell_printf_bold = false;
 static uint32_t shell_input_display_length = 0;
 static uint8_t shell_file_buffer[USER_FILE_BUFFER_SIZE];
 static char shell_arg_storage[SHELL_MAX_ARGS - 1][SHELL_BUFFER_SIZE];
@@ -32,10 +33,11 @@ static struct BlockBuffer shell_find_directory_buffer;
 static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
-const char *builtin_cmd[] = {"sudo", "cd",   "ls",    "mkdir",    "cat",
-                             "grep", "cp",   "mv",    "rm",       "find",
-                             "echo", "pwd",  "exit",  "badapple", "exec",
-                             "ps",   "kill", "clock", "clear",    "help"};
+const char *builtin_cmd[] = {"sudo",  "cd",   "ls",    "mkdir",    "cat",
+                             "grep",  "cp",   "mv",    "rm",       "find",
+                             "echo",  "pwd",  "exit",  "badapple", "exec",
+                             "ps",    "kill", "clock", "clear",    "help",
+                             "pacman"};
 int (*builtin_func[])(char **) = {
     &shell_sudo,
     &shell_cd,
@@ -56,7 +58,8 @@ int (*builtin_func[])(char **) = {
     &shell_kill,
     &shell_clock,
     &shell_clear,
-    &shell_help
+    &shell_help,
+    &shell_pacman
 };
 
 int streq(
@@ -422,8 +425,15 @@ static uint32_t shell_parse_sgr(
         if (code == 0) {
             shell_printf_fg = 0x0F;
             shell_printf_bg = 0;
+            shell_printf_bold = false;
+        } else if (code == 1) {
+            shell_printf_bold = true;
+            shell_printf_fg |= 0x08;
+        } else if (code == 22) {
+            shell_printf_bold = false;
         } else if (code >= 30 && code <= 37) {
-            shell_printf_fg = ansi_to_vga[code - 30];
+            shell_printf_fg = (uint8_t) (ansi_to_vga[code - 30] +
+                                         (shell_printf_bold ? 8 : 0));
         } else if (code >= 90 && code <= 97) {
             shell_printf_fg = (uint8_t) (ansi_to_vga[code - 90] + 8);
         } else if (code >= 40 && code <= 47) {
@@ -456,6 +466,12 @@ static void shell_printf_n(
         if (message[i] == '\n') {
             shell_printf_newline();
             i++;
+        } else if (message[i] == '\r') {
+            // Carriage return: back to column 0 of the current row, so the
+            // next write overdraws the line (progress bars, spinners...).
+            shell_printf_col = 0;
+            framebuffer_set_cursor(shell_printf_row, 0);
+            i++;
         } else {
             uint32_t consumed = 0;
             if (message[i] == '\x1B' && i + 1 < length &&
@@ -467,7 +483,8 @@ static void shell_printf_n(
             } else {
                 uint32_t text_start = i;
                 while (
-                    i < length && message[i] != '\n' && message[i] != '\x1B'
+                    i < length && message[i] != '\n' && message[i] != '\r' &&
+                    message[i] != '\x1B'
                 ) {
                     i++;
                 }
@@ -2172,6 +2189,44 @@ int shell_help(char **args) {
     shell_printf("Process: sudo, ps, kill, exec\n");
     shell_printf("Terminal & Session Control: clear, exit, help\n");
     shell_printf("Utils, Misc: badapple, clock\n");
+
+    return 1;
+}
+
+int shell_pacman(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf(
+            "Usage: pacman! a tribute to Arch Linux's pacman easter egg.\n"
+        );
+        return 1;
+    }
+
+    const uint32_t width = 40;
+    char frame[96];
+
+    for (uint32_t i = 0; i <= width; i++) {
+        uint32_t n = 0;
+        const char *head = "\r[";
+        while (*head)
+            frame[n++] = *head++;
+
+        for (uint32_t j = 0; j < i; j++) // eaten trail
+            frame[n++] = '-';
+
+        const char *pac =
+            (i % 2 == 0) ? "\x1B[1;33mC\x1B[0m" : "\x1B[1;33mc\x1B[0m";
+        while (*pac)
+            frame[n++] = *pac++;
+
+        for (uint32_t j = i + 1; j <= width; j++) // dots still ahead
+            frame[n++] = (j % 3 == 0) ? 'o' : ' ';
+
+        frame[n++] = ']';
+        shell_printf_n(frame, n);
+
+        sleep_ms(80);
+    }
+    shell_printf("\n");
 
     return 1;
 }

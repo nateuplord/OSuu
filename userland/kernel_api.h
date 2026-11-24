@@ -118,4 +118,16 @@ int32_t spawn_process(
 /** CMOS/RTC wrappers - backed by int 0x30 services 25-26. */
 /** cmos_read_datetime() and cmos_get_periodic_ticks() come from driver/cmos.h. */
 
+/**
+ * Milliseconds since boot, from the PIT (service 29). 10 ms resolution;
+ * wraps after ~49 days, so compare with subtraction (`now - start >= ms`).
+ */
+uint32_t get_ticks_ms(void);
+
+/**
+ * usleep()-style wait: yields to other processes until at least `ms`
+ * milliseconds have passed. Rounds up to the 10 ms PIT resolution.
+ */
+void sleep_ms(uint32_t ms);
+
 #endif

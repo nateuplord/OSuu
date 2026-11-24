@@ -241,3 +241,16 @@ uint32_t cmos_get_periodic_ticks(void) {
     syscall(SYSCALL_CMOS_TICKS, (uint32_t) &ticks, 0, 0);
     return ticks;
 }
+
+uint32_t get_ticks_ms(void) {
+    uint32_t ms = 0;
+    syscall(SYSCALL_TIME_TICKS_MS, (uint32_t) &ms, 0, 0);
+    return ms;
+}
+
+void sleep_ms(uint32_t ms) {
+    uint32_t start = get_ticks_ms();
+    while (get_ticks_ms() - start < ms) {
+        yield();
+    }
+}

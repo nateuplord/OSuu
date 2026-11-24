@@ -29,6 +29,16 @@
   */
 void pit_init(uint32_t frequency_hz);
 
+/// Tick rate the kernel programs the PIT to (kernel.c). 1000 must be
+/// divisible by it, so ticks convert to milliseconds exactly.
+#define PIT_TICK_RATE_HZ 100u
+
+/**
+  * Milliseconds since pit_init(), at PIT_TICK_RATE_HZ resolution (10 ms).
+  * Backing implementation for SYSCALL_TIME_TICKS_MS.
+  */
+uint32_t pit_get_ms(void);
+
 /**
   * Number of PIT ticks since pit_init() was called.
   */

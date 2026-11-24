@@ -20,6 +20,10 @@ uint32_t pit_get_ticks(void) {
     return pit_ticks;
 }
 
+uint32_t pit_get_ms(void) {
+    return pit_ticks * (1000u / PIT_TICK_RATE_HZ);
+}
+
 void pit_isr(void) {
     pic_ack(IRQ_TIMER);
     ++pit_ticks;

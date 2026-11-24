@@ -120,5 +120,6 @@ int shell_kill(char **args);
 int shell_clock(char **args);
 int shell_clear(char **args);
 int shell_help(char **args);
+int shell_pacman(char **args);
 
 #endif
