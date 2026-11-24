@@ -14,7 +14,7 @@ ISO_NAME      = OSuu
 WARNING_CFLAG = -Wall -Wextra -Werror
 DEBUG_CFLAG   = -fshort-wchar -g
 STRIP_CFLAG   = -nostdlib -fno-stack-protector -nostartfiles -nodefaultlibs -ffreestanding
-C_FLAGS       = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -I$(HEADER_FOLDER) -m32 -mgeneral-regs-only -c -MMD -MP
+C_FLAGS       = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -I$(HEADER_FOLDER) -m32 -mgeneral-regs-only -fno-omit-frame-pointer -c -MMD -MP
 ASM_FLAGS     = -f elf32 -g -F dwarf
 LINK_FLAGS    = -T $(SOURCE_FOLDER)/boot/linker.ld -melf_i386
 
