@@ -1,5 +1,6 @@
 #include "kernel_api.h"
 #include "syscall.h"
+#include <stddef.h>
 
 int8_t read(struct EXT2DriverRequest request) {
     int8_t result;
@@ -163,4 +164,59 @@ int32_t kill_process(uint32_t pid) {
     int32_t result = 1;
     syscall(SYSCALL_PROCESS_KILL, pid, (uint32_t) &result, 0);
     return result;
+}
+
+int32_t spawn_process(
+    const char *name,
+    uint8_t priority,
+    uint32_t *pid
+) {
+    if (pid != NULL) {
+        *pid = 0;
+    }
+    if (name == NULL) {
+        return 1;
+    }
+
+    uint32_t name_len = 0;
+    while (name[name_len] != '\0') {
+        ++name_len;
+        if (name_len > UINT8_MAX) {
+            return 1;
+        }
+    }
+    if (name_len == 0) {
+        return 1;
+    }
+
+    struct EXT2DriverRequest request = {
+        .buf = NULL,
+        .name = (char *) name,
+        .name_len = (uint8_t) name_len,
+        .parent_inode = 1,
+        .buffer_size = 0x100000,
+        .is_directory = false,
+    };
+    struct ProcessCreateResult result = {0};
+    syscall(
+        SYSCALL_PROCESS_CREATE, (uint32_t) &request, priority,
+        (uint32_t) &result
+    );
+
+    if (pid != NULL) {
+        *pid = result.pid;
+    }
+    return result.status;
+}
+
+bool cmos_read_datetime(struct CmosDateTime *out) {
+    bool ok = false;
+    syscall(SYSCALL_CMOS_READ, (uint32_t) out, (uint32_t) &ok, 0);
+    return ok;
+}
+
+uint32_t cmos_get_periodic_ticks(void) {
+    uint32_t ticks = 0;
+    syscall(SYSCALL_CMOS_TICKS, (uint32_t) &ticks, 0, 0);
+    return ticks;
 }

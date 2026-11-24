@@ -25,4 +25,10 @@ struct ProcessInfo {
     char name[PROCESS_NAME_LENGTH_MAX];
 };
 
+/** Result of a process-create syscall: status plus the new process PID. */
+struct ProcessCreateResult {
+    int32_t status;
+    uint32_t pid;
+};
+
 #endif

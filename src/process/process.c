@@ -96,7 +96,8 @@ void process_save_current_context(
 
 int32_t process_create_user_process(
     struct EXT2DriverRequest request,
-    uint8_t priority
+    uint8_t priority,
+    uint32_t *out_pid
 ) {
     int32_t retcode = PROCESS_CREATE_SUCCESS;
     if (process_manager_state.active_process_count >= PROCESS_COUNT_MAX) {
@@ -197,6 +198,9 @@ int32_t process_create_user_process(
 
     // 7. initialize PCB metadata and manager bookkeeping
     new_pcb->metadata.pid = process_generate_new_pid();
+    if (out_pid != NULL) {
+        *out_pid = new_pcb->metadata.pid;
+    }
     new_pcb->metadata.state = PROCESS_STATE_READY;
     new_pcb->metadata.priority = priority;
 

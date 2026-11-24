@@ -99,7 +99,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
     // One shell owns the framebuffer and keyboard. Multiple instances would
     // fight over the shared kernel cursor state and the single keyboard buffer.
     int32_t create_status =
-        process_create_user_process(request, PROCESS_PRIORITY_DEFAULT);
+        process_create_user_process(request, PROCESS_PRIORITY_DEFAULT, NULL);
     if (create_status != PROCESS_CREATE_SUCCESS) {
         halt_with_error(create_status);
     }

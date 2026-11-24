@@ -1,9 +1,11 @@
 #include "cpu/syscall.h"
+#include "driver/cmos.h"
 #include "driver/keyboard.h"
 #include "fs/ext2.h"
 #include "misc/badapple.h"
 #include "process/process.h"
 #include "process/scheduler.h"
+#include "stdlib/string.h"
 #include "text/framebuffer.h"
 #include <stdint.h>
 
@@ -167,6 +169,47 @@ void syscall(struct InterruptFrame frame) {
             *(int32_t *) frame.cpu.general.ecx = killed ? 0 : 1;
             break;
         }
+
+        case SYSCALL_PROCESS_CREATE: {
+            struct EXT2DriverRequest *user_request =
+                (struct EXT2DriverRequest *) frame.cpu.general.ebx;
+            struct ProcessCreateResult *result =
+                (struct ProcessCreateResult *) frame.cpu.general.edx;
+            struct EXT2DriverRequest kernel_request;
+            char name[UINT8_MAX + 1];
+
+            result->status = PROCESS_CREATE_FAIL_INVALID_NAME;
+            result->pid = 0;
+            memcpy(&kernel_request, user_request, sizeof(kernel_request));
+            if (kernel_request.name == NULL || kernel_request.name_len == 0) {
+                break;
+            }
+
+            // process_create_user_process() switches CR3 before reading the
+            // executable, so the filename must live in kernel memory first.
+            memcpy(name, kernel_request.name, kernel_request.name_len);
+            name[kernel_request.name_len] = '\0';
+            kernel_request.name = name;
+            kernel_request.buf = NULL;
+
+            result->status = process_create_user_process(
+                kernel_request, (uint8_t) frame.cpu.general.ecx, &result->pid
+            );
+            if (result->status != PROCESS_CREATE_SUCCESS) {
+                result->pid = 0;
+            }
+            break;
+        }
+
+        case SYSCALL_CMOS_READ:
+            *(bool *) frame.cpu.general.ecx = cmos_read_datetime(
+                (struct CmosDateTime *) frame.cpu.general.ebx
+            );
+            break;
+
+        case SYSCALL_CMOS_TICKS:
+            *(uint32_t *) frame.cpu.general.ebx = cmos_get_periodic_ticks();
+            break;
 
         default:
             break;

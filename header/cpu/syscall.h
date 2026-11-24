@@ -47,6 +47,9 @@
 #define SYSCALL_PROCESS_EXEC 21
 #define SYSCALL_PROCESS_LIST 22
 #define SYSCALL_PROCESS_KILL 23
+#define SYSCALL_PROCESS_CREATE 24
+#define SYSCALL_CMOS_READ 25
+#define SYSCALL_CMOS_TICKS 26
 
 /**
  * Dispatches a syscall based on the trapped CPU state's eax/ebx/ecx/edx.

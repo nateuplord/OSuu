@@ -33,6 +33,9 @@
 #define SYSCALL_PROCESS_EXEC 21
 #define SYSCALL_PROCESS_LIST 22
 #define SYSCALL_PROCESS_KILL 23
+#define SYSCALL_PROCESS_CREATE 24
+#define SYSCALL_CMOS_READ 25
+#define SYSCALL_CMOS_TICKS 26
 
 /**
  * Traps into the kernel via `int 0x30` with the given service number and up

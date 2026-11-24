@@ -117,5 +117,6 @@ int shell_badapple(char **args);
 int shell_exec(char **args);
 int shell_ps(char **args);
 int shell_kill(char **args);
+int shell_clock(char **args);
 
 #endif

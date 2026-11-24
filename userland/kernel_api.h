@@ -7,6 +7,7 @@
  * header/driver/keyboard.h exactly, so shell.c's calls don't need to change.
  */
 
+#include "driver/cmos.h"
 #include "fs_types.h"
 #include "process/process_info.h"
 #include <stdint.h>
@@ -74,7 +75,7 @@ void play_bad_apple(
 void get_keyboard_buffer(char *buf);
 void keyboard_state_activate(void);
 
-/** Process management - backed by int 0x30 services 17-23. */
+/** Process management - backed by int 0x30 services 17-24. */
 __attribute__((noreturn)) void exit_process(void);
 __attribute__((noreturn)) void exit_all_processes(void);
 uint32_t getpid(void);
@@ -92,5 +93,18 @@ uint32_t process_list(
 
 /** Returns 0 on success, 1 when no process has that PID. */
 int32_t kill_process(uint32_t pid);
+
+/**
+ * Spawn a new process from a root-directory executable. `priority` 0 selects
+ * the kernel default. On success `pid` receives the new process ID.
+ */
+int32_t spawn_process(
+    const char *name,
+    uint8_t priority,
+    uint32_t *pid
+);
+
+/** CMOS/RTC wrappers - backed by int 0x30 services 25-26. */
+/** cmos_read_datetime() and cmos_get_periodic_ticks() come from driver/cmos.h. */
 
 #endif

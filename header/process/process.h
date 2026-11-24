@@ -95,6 +95,7 @@ enum ContextInterruptFrameIndex {
 #define PROCESS_CREATE_FAIL_INVALID_ENTRYPOINT 2
 #define PROCESS_CREATE_FAIL_NOT_ENOUGH_MEMORY 3
 #define PROCESS_CREATE_FAIL_FS_READ_FAILURE 4
+#define PROCESS_CREATE_FAIL_INVALID_NAME 5
 
 /**
  * One frame is reserved for the user stack, so PROCESS_PAGE_FRAME_COUNT_MAX
@@ -218,11 +219,13 @@ void context_restore(
  * @note          This procedure assumes no reentrancy in ISR
  * @param request  Appropriate read request for the executable
  * @param priority Scheduling priority; 0 becomes PROCESS_PRIORITY_DEFAULT
+ * @param out_pid  Optional destination for the PID of the new process
  * @return         Process creation return code
  */
 int32_t process_create_user_process(
     struct EXT2DriverRequest request,
-    uint8_t priority
+    uint8_t priority,
+    uint32_t *out_pid
 );
 
 /**

@@ -31,10 +31,10 @@ static struct BlockBuffer shell_find_directory_buffer;
 static struct BlockBuffer shell_rm_directory_buffers[SHELL_PATH_DEPTH_MAX];
 static char shell_rm_child_names[SHELL_PATH_DEPTH_MAX][UINT8_MAX + 1];
 
-const char *builtin_cmd[] = {"sudo", "cd",  "ls",   "mkdir",    "cat",
-                             "grep", "cp",  "mv",   "rm",       "find",
-                             "echo", "pwd", "exit", "badapple", "exec",
-                             "ps",   "kill"};
+const char *builtin_cmd[] = {"sudo", "cd",   "ls",   "mkdir",    "cat",
+                             "grep", "cp",   "mv",   "rm",       "find",
+                             "echo", "pwd",  "exit", "badapple", "exec",
+                             "ps",   "kill", "clock"};
 
 int (*builtin_func[])(char **) = {
     &shell_sudo,
@@ -53,7 +53,8 @@ int (*builtin_func[])(char **) = {
     &shell_badapple,
     &shell_exec,
     &shell_ps,
-    &shell_kill
+    &shell_kill,
+    &shell_clock
 };
 
 int streq(
@@ -2094,5 +2095,26 @@ int shell_kill(char **args) {
         shell_print_uint(pid);
         shell_printf(": No such process\n");
     }
+    return 1;
+}
+
+int shell_clock(char **args) {
+    if (args != NULL && args[1] != NULL && streq(args[1], "--help")) {
+        shell_printf(
+            "Usage: clock\nStart a background clock in the bottom-right.\n"
+        );
+        return 1;
+    }
+
+    uint32_t pid = 0;
+    int32_t status = spawn_process("clock", 0, &pid);
+    if (status != 0) {
+        shell_printf("clock: unable to start background process\n");
+        return 1;
+    }
+
+    shell_printf("clock: started pid ");
+    shell_print_uint(pid);
+    shell_printf("\n");
     return 1;
 }
