@@ -105,17 +105,7 @@ void kernel_setup(struct Multiboot2Info *mb_info) {
         }
     }
 
-    struct ProcessControlBlock *initial_process = &_process_list[0];
-    initial_process->metadata.state = PROCESS_STATE_RUNNING;
-
-    paging_use_page_directory(
-        (struct PgDir *) initial_process->context.page_directory_virtual_addr
-    );
-    set_tss_kernel_stack(initial_process->context.kernel_stack_top);
-    context_restore(
-        initial_process->context.kernel_stack_top,
-        initial_process->context.interrupt_frame
-    );
+    scheduler_start();
 
     // 3.3 things (below) are replaced with 4.1.4 process initialization. delete them if you'd like. i'm just afraid of messing up something :') -natan
     // if (!make_user_accessible(

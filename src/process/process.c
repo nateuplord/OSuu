@@ -1,6 +1,7 @@
 #include "process/process.h"
 #include "cpu/gdt.h"
 #include "memory/paging.h"
+#include "process/scheduler.h"
 #include "stdlib/string.h"
 
 static uint32_t ceil_div(
@@ -214,6 +215,7 @@ int32_t process_create_user_process(
 
     process_manager_state.is_process_active[p_index] = true;
     process_manager_state.active_process_count++;
+    scheduler_register_process(new_pcb);
 
 exit_cleanup:
     return retcode;
