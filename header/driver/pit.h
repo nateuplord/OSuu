@@ -12,6 +12,9 @@
 /// PIT's fixed input oscillator frequency, in Hz
 #define PIT_NATURAL_FREQUENCY_HZ 1193182u
 
+/// Rate programmed by pit_init() during kernel startup.
+#define PIT_HZ 100u
+
 /**
   * Command byte: channel 0, lobyte/hibyte access, mode 3 (square wave), binary.
   * @see https://wiki.osdev.org/Programmable_Interval_Timer#I.2FO_Ports

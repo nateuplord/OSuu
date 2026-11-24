@@ -38,6 +38,7 @@
 #define SYSCALL_CMOS_TICKS 26
 #define SYSCALL_KEYBOARD_POLL 27
 #define SYSCALL_GUI_FILL_RECT 28
+#define SYSCALL_PIT_TICKS 29
 
 /**
  * Traps into the kernel via `int 0x30` with the given service number and up

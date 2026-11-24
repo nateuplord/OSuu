@@ -241,3 +241,9 @@ uint32_t cmos_get_periodic_ticks(void) {
     syscall(SYSCALL_CMOS_TICKS, (uint32_t) &ticks, 0, 0);
     return ticks;
 }
+
+uint32_t pit_get_ticks(void) {
+    uint32_t ticks = 0;
+    syscall(SYSCALL_PIT_TICKS, (uint32_t) &ticks, 0, 0);
+    return ticks;
+}
