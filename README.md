@@ -52,9 +52,12 @@ sudo pacman -S base-devel nasm grub libisoburn mtools qemu-full
 
 # Debian / Ubuntu / WSL
 sudo apt install build-essential gcc-multilib nasm grub-pc-bin grub-common xorriso mtools qemu-system-x86 qemu-utils
+
+# Fedora
+sudo dnf install @development-tools glibc-devel.i686 nasm grub2-tools grub2-pc-modules xorriso mtools qemu-system-x86 qemu-img
 ```
 
-Makefile otomatis memakai `grub-mkrescue`.
+Makefile otomatis memakai `grub-mkrescue` (atau `grub2-mkrescue` di Fedora).
 
 ### 2. Buat disk image (sekali saja)
 
