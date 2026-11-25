@@ -17,12 +17,33 @@
 
 ```
 root
-├───.kit
-├───assets
-├───bin
-├───boot
-├───header
-├───src
+├───.kit                    # kit referensi dari asisten, per chapter (ch1-ch4)
+├───.vscode                 # konfigurasi debug GDB & task
+├───assets                  # gambar untuk README
+├───bin                     # hasil build (kernel, ISO, storage.bin), tidak di-commit
+├───boot                    # konfigurasi GRUB2 (grub.cfg)
+├───docs                    # link jurnal penggunaan AI
+├───header                  # header kernel, struktur folder sama dengan src/
+├───misc                    # aset Bad Apple (frames.bin, palette.bin) dan encoder-nya
+├───src                     # source kernel
+│   ├───boot                # entrypoint, linker script, interrupt stub, trampoline VBE
+│   ├───cpu                 # GDT, IDT, interrupt, port I/O, syscall
+│   ├───driver              # keyboard, PIT, CMOS (RTC), disk ATA
+│   ├───fs                  # filesystem ext2
+│   ├───memory              # paging dan swap
+│   ├───misc                # player Bad Apple
+│   ├───process             # process dan scheduler
+│   ├───stdlib              # memset, memcpy, dll.
+│   ├───text                # framebuffer dan teks 8x8
+│   └───kernel.c
+├───tools
+│   └───inserter            # tool host untuk memasukkan file ke disk image
+├───userland                # program ring 3
+│   ├───crt0.s, linker.ld   # entrypoint dan linker script program user
+│   ├───syscall.h, kernel_api.c/h, fs_types.h, string.c/h
+│   ├───shell.c/h, user-shell.c
+│   ├───clock.c, clock_display.h
+│   └───snake.c
 ├───.clang-format
 ├───.gitignore
 ├───Makefile
