@@ -19,6 +19,7 @@ OUTPUT_FOLDER := bin
 BOOT_FOLDER   := boot
 USER_FOLDER   := userland
 USER_HEADERS  := $(USER_FOLDER)/header
+USER_BOOT     := $(USER_FOLDER)/boot
 
 ISO_NAME  := OSuu
 DISK_NAME := storage
@@ -41,7 +42,7 @@ C_FLAGS := $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) \
 ASM_FLAGS  := -f elf32 -g -F dwarf
 LINK_FLAGS := -T $(SOURCE_FOLDER)/boot/linker.ld -melf_i386
 
-USER_LINK_FLAGS := -T $(USER_FOLDER)/linker.ld -melf_i386 --oformat=binary
+USER_LINK_FLAGS := -T $(USER_BOOT)/linker.ld -melf_i386 --oformat=binary
 
 # ============================================================
 # Kernel sources (auto-discovered)
@@ -176,21 +177,21 @@ $(OUTPUT_FOLDER)/userprog/%.o: $(USER_FOLDER)/%.c
 	@mkdir -p $(dir $@)
 	@$(CC) $(C_FLAGS) -I$(USER_HEADERS) -fno-pie $< -o $@
 
-$(OUTPUT_FOLDER)/userprog/crt0.o: $(USER_FOLDER)/crt0.s
+$(OUTPUT_FOLDER)/userprog/crt0.o: $(USER_BOOT)/crt0.s
 	@mkdir -p $(dir $@)
 	@$(ASM) $(ASM_FLAGS) $< -o $@
 
-$(USER_BIN): $(USER_SHELL_OBJS) $(USER_FOLDER)/linker.ld
+$(USER_BIN): $(USER_SHELL_OBJS) $(USER_BOOT)/linker.ld
 	@$(LINK) $(USER_LINK_FLAGS) $(USER_SHELL_OBJS) -o $@
 	@echo Linking shell flat binary...
 	@size --target=binary $@
 
-$(USER_CLOCK_BIN): $(USER_CLOCK_OBJS) $(USER_FOLDER)/linker.ld
+$(USER_CLOCK_BIN): $(USER_CLOCK_OBJS) $(USER_BOOT)/linker.ld
 	@$(LINK) $(USER_LINK_FLAGS) $(USER_CLOCK_OBJS) -o $@
 	@echo Linking clock flat binary...
 	@size --target=binary $@
 
-$(USER_SNAKE_BIN): $(USER_SNAKE_OBJS) $(USER_FOLDER)/linker.ld
+$(USER_SNAKE_BIN): $(USER_SNAKE_OBJS) $(USER_BOOT)/linker.ld
 	@$(LINK) $(USER_LINK_FLAGS) $(USER_SNAKE_OBJS) -o $@
 	@echo Linking snake flat binary...
 	@size --target=binary $@
