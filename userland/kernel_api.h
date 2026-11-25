@@ -156,4 +156,24 @@ bool raw_keyboard_enable(bool on);
  */
 bool raw_keyboard_poll(struct KeyEvent *out);
 
+/**
+ * Make `[start, start + size)` usable memory for this process (service 34).
+ *
+ * Touching an address in a 4 MiB region the process has never used kills it;
+ * call this first for any big fixed-address buffer (heap, game zone, file
+ * images). Memory is only actually allocated as pages are first touched, and
+ * comes back zeroed. Freed automatically on exit.
+ *
+ * @return false if the range is empty, wraps, reaches >= 0xC0000000, or the
+ *         kernel ran out of page-table frames
+ */
+bool map_region(void *start, uint32_t size);
+
+/**
+ * Clear the screen and exec "shell" from the root directory, replacing the
+ * calling program - how a program launched with `exec` hands control back.
+ * Exits the process if the shell can't be found or loaded.
+ */
+__attribute__((noreturn)) void return_to_shell(void);
+
 #endif

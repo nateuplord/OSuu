@@ -55,6 +55,8 @@
 #define SYSCALL_PIT_TICKS 29
 #define SYSCALL_KEYBOARD_GET_EVENT 30
 #define SYSCALL_KEYBOARD_SET_RAW 31
+/* 32-33 reserved: VIDEO_SET_PALETTE, VIDEO_BLIT */
+#define SYSCALL_MEMORY_MAP_REGION 34
 
 /**
  * Dispatches a syscall based on the trapped CPU state's eax/ebx/ecx/edx.

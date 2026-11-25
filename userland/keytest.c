@@ -26,52 +26,6 @@ static void print_hex8(uint8_t value, uint8_t color) {
     framebuffer_puts(out, 4, color);
 }
 
-// Same approach as snake: look up the shell's size in the root directory,
-// then exec it, so quitting keytest drops back into a working shell.
-static void return_to_shell(void) {
-    char shell_name[] = "shell";
-    struct BlockBuffer directory;
-    struct EXT2Inode root_node;
-    get_node(&root_node, 1);
-    read_blocks(directory.buf, root_node.i_block[0], 1);
-
-    uint32_t shell_inode = 0;
-    uint32_t offset = get_dir_first_child_offset(directory.buf);
-    while (offset < BLOCK_SIZE) {
-        struct EXT2DirectoryEntry *entry =
-            get_directory_entry(directory.buf, offset);
-        if (entry->inode == 0 || entry->rec_len == 0 ||
-            entry->rec_len > BLOCK_SIZE - offset) {
-            break;
-        }
-        if (entry->name_len == 5 &&
-            memcmp(get_entry_name(entry), shell_name, 5) == 0) {
-            shell_inode = entry->inode;
-            break;
-        }
-        offset += entry->rec_len;
-    }
-    if (shell_inode == 0) {
-        exit_process();
-    }
-
-    struct EXT2Inode shell_node;
-    get_node(&shell_node, shell_inode);
-
-    struct EXT2DriverRequest exec_request = {
-        .buf = NULL,
-        .name = shell_name,
-        .name_len = 5,
-        .parent_inode = 1,
-        .buffer_size = shell_node.i_size,
-        .is_directory = false,
-    };
-
-    framebuffer_clear();
-    exec_process(exec_request);
-    exit_process();
-}
-
 int main(void) {
     framebuffer_clear();
     framebuffer_set_cursor(0, 0);

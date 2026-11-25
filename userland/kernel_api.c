@@ -265,8 +265,62 @@ bool raw_keyboard_enable(bool on) {
     return ok != 0;
 }
 
+bool map_region(void *start, uint32_t size) {
+    int32_t ok = 0;
+    syscall(
+        SYSCALL_MEMORY_MAP_REGION, (uint32_t) start, size, (uint32_t) &ok
+    );
+    return ok != 0;
+}
+
 bool raw_keyboard_poll(struct KeyEvent *out) {
     int32_t ok = 0;
     syscall(SYSCALL_KEYBOARD_GET_EVENT, (uint32_t) out, (uint32_t) &ok, 0);
     return ok != 0;
+}
+
+__attribute__((noreturn)) void return_to_shell(void) {
+    static const char shell_name[] = "shell";
+    struct BlockBuffer directory;
+    struct EXT2Inode root_node;
+    get_node(&root_node, 1);
+    read_blocks(directory.buf, root_node.i_block[0], 1);
+
+    // exec needs the image size up front, so find "shell" in the root dir.
+    uint32_t shell_inode = 0;
+    uint32_t offset = get_dir_first_child_offset(directory.buf);
+    while (offset < BLOCK_SIZE) {
+        struct EXT2DirectoryEntry *entry =
+            get_directory_entry(directory.buf, offset);
+        if (entry->inode == 0 || entry->rec_len == 0 ||
+            entry->rec_len > BLOCK_SIZE - offset) {
+            break;
+        }
+        const char *name = get_entry_name(entry);
+        if (entry->name_len == 5 && name[0] == 's' && name[1] == 'h' &&
+            name[2] == 'e' && name[3] == 'l' && name[4] == 'l') {
+            shell_inode = entry->inode;
+            break;
+        }
+        offset += entry->rec_len;
+    }
+    if (shell_inode == 0) {
+        exit_process();
+    }
+
+    struct EXT2Inode shell_node;
+    get_node(&shell_node, shell_inode);
+
+    struct EXT2DriverRequest exec_request = {
+        .buf = NULL,
+        .name = (char *) shell_name,
+        .name_len = 5,
+        .parent_inode = 1,
+        .buffer_size = shell_node.i_size,
+        .is_directory = false,
+    };
+
+    framebuffer_clear();
+    exec_process(exec_request);
+    exit_process(); // exec failed - nothing to go back to
 }

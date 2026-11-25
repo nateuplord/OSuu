@@ -258,4 +258,19 @@ uint32_t process_list_snapshot(
  */
 bool process_destroy(uint32_t pid);
 
+/**
+ * Make `[start, start + size)` demand-pageable in the *current* process.
+ *
+ * @details
+ * The page-fault handler kills a process that touches a 4 MiB region with no
+ * page table (so wild pointers die instead of silently getting memory). This
+ * creates the missing page tables for the range up front; frames are still
+ * only allocated on first touch, and are freed on exit like any other page.
+ * Backing implementation for SYSCALL_MEMORY_MAP_REGION.
+ *
+ * @return false for an empty/wrapping range, one reaching the kernel half
+ *         (>= 0xC0000000), or if a page table couldn't be allocated
+ */
+bool process_map_region(void *start, uint32_t size);
+
 #endif

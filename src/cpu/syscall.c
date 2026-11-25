@@ -242,6 +242,17 @@ void syscall(struct InterruptFrame frame) {
             break;
         }
 
+        case SYSCALL_MEMORY_MAP_REGION: {
+            // ebx = void *start, ecx = uint32_t size, edx = int32_t *ok
+            bool ok = process_map_region(
+                (void *) frame.cpu.general.ebx, frame.cpu.general.ecx
+            );
+            if (frame.cpu.general.edx != 0) {
+                *(int32_t *) frame.cpu.general.edx = ok ? 1 : 0;
+            }
+            break;
+        }
+
         case SYSCALL_KEYBOARD_SET_RAW: {
             // ebx = bool raw, ecx = int32_t *ok (1 = applied)
             struct ProcessControlBlock *pcb =

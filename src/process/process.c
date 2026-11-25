@@ -2,6 +2,7 @@
 #include "cpu/gdt.h"
 #include "driver/keyboard.h"
 #include "memory/paging.h"
+#include "memory/swap.h"
 #include "process/scheduler.h"
 #include "stdlib/string.h"
 
@@ -247,23 +248,82 @@ static void process_free_page_tables(struct PgDir *page_dir) {
 }
 
 /**
- * Free every user frame recorded for `dir`. pg_free_user_frame() requires the
- * directory to be active, so switch to it first and leave `restore_dir` active
- * on return.
+ * True if user-range PDE `d` of `dir` is a mapping shared with the kernel
+ * directory (e.g. one copied in for MMIO) rather than a page table this
+ * process owns - those must never be walked and freed as process memory.
+ */
+static bool process_pde_is_shared(struct PgDir *dir, uint32_t d) {
+    const struct PgDirEntry *mine = &dir->table[d];
+    const struct PgDirEntry *kernel = &_pg_kernel_pg_dir.table[d];
+    return kernel->flags.present && mine->addr_low == kernel->addr_low &&
+           mine->addr_high == kernel->addr_high;
+}
+
+/**
+ * Free every user page `dir` maps, found by walking its page tables - not
+ * just the pages the loader recorded in virtual_addr_used. Pages backed later
+ * by demand paging (.bss, a growing stack, MAP_REGION ranges) are never
+ * recorded there, so trusting that list leaked them on every exit. Swapped-out
+ * pages give their swap slot back too.
+ *
+ * pg_free_user_frame() and the recursive table window both require `dir` to
+ * be the active directory, so it's switched in here and `restore_dir` is made
+ * active again on return.
  */
 static void process_free_image_frames(
     struct PgDir *dir,
-    struct PgDir *restore_dir,
-    void **frames,
-    uint32_t count
+    struct PgDir *restore_dir
 ) {
     paging_use_page_directory(dir);
-    for (uint32_t i = 0; i < count; ++i) {
-        if (frames[i] != NULL) {
-            pg_free_user_frame(dir, frames[i]);
+
+    const uint32_t user_pde_count = KERNEL_VIRTUAL_ADDRESS_BASE >> 22;
+    for (uint32_t d = 0; d < user_pde_count; ++d) {
+        if (!dir->table[d].flags.present || process_pde_is_shared(dir, d)) {
+            continue;
+        }
+
+        struct PgTable *table =
+            (struct PgTable *) (RECURSIVE_PG_TABLES_VIRT_ADDR + d * FRAME_SIZE);
+        for (uint32_t t = 0; t < PG_ENTRY_COUNT; ++t) {
+            struct PgTableEntry *pte = &table->data[t];
+            if (pte->flags.present) {
+                pg_free_user_frame(dir, (void *) ((d << 22) | (t << 12)));
+            } else if (is_page_swapped(pte)) {
+                uint16_t slot = get_swap_slot(pte);
+                if (slot < PAGE_FRAME_ON_SWAP_MAX_COUNT &&
+                    swap_manager.swap_used[slot]) {
+                    swap_manager.swap_used[slot] = false;
+                    swap_manager.free_count++;
+                }
+                memset(pte, 0, sizeof(*pte));
+            }
         }
     }
+
     paging_use_page_directory(restore_dir);
+}
+
+bool process_map_region(void *start, uint32_t size) {
+    uint32_t begin = (uint32_t) start;
+    // Reject empty, wrapping, or kernel-touching ranges.
+    if (size == 0 || begin + size < begin ||
+        begin + size > KERNEL_VIRTUAL_ADDRESS_BASE) {
+        return false;
+    }
+
+    // pg_get_table() only works on the active directory - which, inside a
+    // syscall, is the calling process's own.
+    struct PgDir *dir = paging_get_current_page_directory_addr();
+    uint32_t first = begin >> 22;
+    uint32_t last = (begin + size - 1) >> 22;
+    for (uint32_t d = first; d <= last; ++d) {
+        // Allocates and zeroes a user page table if this PDE is missing; no
+        // frames are mapped yet - demand paging fills them in on first touch.
+        if (pg_get_table(dir, d) == NULL) {
+            return false; // out of frames; earlier tables stay, freed on exit
+        }
+    }
+    return true;
 }
 
 int32_t process_exec_current(struct EXT2DriverRequest request) {
@@ -337,10 +397,7 @@ int32_t process_exec_current(struct EXT2DriverRequest request) {
 
     // The new image is fully loaded. Only now is it safe to destroy the old
     // one; failures above return to the still-intact caller.
-    process_free_image_frames(
-        old_dir, new_dir, pcb->memory.virtual_addr_used,
-        pcb->memory.page_frame_used_count
-    );
+    process_free_image_frames(old_dir, new_dir);
     process_free_page_tables(old_dir);
     paging_free_page_directory(old_dir);
 
@@ -364,7 +421,7 @@ int32_t process_exec_current(struct EXT2DriverRequest request) {
     __builtin_unreachable();
 
 cleanup_new_image:
-    process_free_image_frames(new_dir, old_dir, new_frames, mapped_count);
+    process_free_image_frames(new_dir, old_dir);
     process_free_page_tables(new_dir);
     paging_free_page_directory(new_dir);
     return retcode;
@@ -428,24 +485,15 @@ bool process_destroy(uint32_t pid) {
     bool destroying_current = page_dir == current_page_dir;
 
     if (page_dir != NULL) {
-        // pg_free_user_frame() needs its directory to be the active one.
-        if (!destroying_current) {
-            paging_use_page_directory(page_dir);
-        }
-
-        for (uint32_t i = 0; i < pcb->memory.page_frame_used_count; ++i) {
-            if (pcb->memory.virtual_addr_used[i] != NULL) {
-                pg_free_user_frame(page_dir, pcb->memory.virtual_addr_used[i]);
-            }
-        }
+        // Free the pages while page_dir is active (the walk needs it), then
+        // leave it *before* wiping it: paging_free_page_directory() zeroes
+        // every PDE, kernel ones included, and doing that to the directory
+        // CR3 still points at only kept working thanks to stale TLB entries.
+        struct PgDir *after_dir =
+            destroying_current ? &_pg_kernel_pg_dir : current_page_dir;
+        process_free_image_frames(page_dir, after_dir);
         process_free_page_tables(page_dir);
         paging_free_page_directory(page_dir);
-
-        if (destroying_current) {
-            paging_use_page_directory(&_pg_kernel_pg_dir);
-        } else {
-            paging_use_page_directory(current_page_dir);
-        }
     }
 
     memset(pcb, 0, sizeof(struct ProcessControlBlock));
