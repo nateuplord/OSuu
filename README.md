@@ -2,16 +2,16 @@
 
 # Tugas Besar IF2130 Sistem Operasi - 2026/2027 | OSuu
 
-## Welcome To OSuu!
+## Welcome to OSuu!
 
-The bestest not yet rhythm OS
+> The bestest not yet rhythm OS!
 
 ## Daftar Anggota
 
-- 13525058 / Farish Firstian Erifiawan
-- 13525061 / Rifqi Irfan Indrawan
-- 13525065 / Christopher Hendrik Gunawan
-- 13525083 / Natanael Chris Fabian Santoso
+- Farish Firstian Erifiawan (13525058)
+- Rifqi Irfan Indrawan (13525061)
+- Christopher Hendrik Gunawan (13525065)
+- Natanael Chris Fabian Santoso (13525083)
 
 ## Direktori Proyek
 
@@ -29,7 +29,7 @@ root
 └───README.md
 ```
 
-## Cara Run
+## Cara Menjalankan
 
 ### 1. Install dependency
 
