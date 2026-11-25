@@ -25,7 +25,7 @@ from collections import defaultdict
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_MIDI = HERE.parent / "assets" / "bad-apple.mid"
+DEFAULT_MIDI = HERE.parent / "misc" / "bad-apple.mid"
 DEFAULT_OUTPUT = HERE / "music.bin"
 
 VIDEO_FRAMES = 6572
