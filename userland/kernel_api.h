@@ -170,6 +170,24 @@ bool raw_keyboard_poll(struct KeyEvent *out);
 bool map_region(void *start, uint32_t size);
 
 /**
+ * Full-screen graphics - backed by int 0x30 services 32-33. Both need the
+ * screen, which raw_keyboard_enable(true) claims (and raw_keyboard_enable
+ * (false), or exiting, gives back - restoring the default palette).
+ */
+
+/**
+ * Program all 256 palette entries from 768 bytes of R, G, B (8 bits each).
+ * @return false if this process doesn't own the screen
+ */
+bool video_set_palette(const uint8_t *rgb);
+
+/**
+ * Draw a `width` x `height` 8bpp image centred on the 640x480 screen.
+ * Silently ignored if this process doesn't own the screen or it doesn't fit.
+ */
+void video_blit(const uint8_t *buf, uint32_t width, uint32_t height);
+
+/**
  * Clear the screen and exec "shell" from the root directory, replacing the
  * calling program - how a program launched with `exec` hands control back.
  * Exits the process if the shell can't be found or loaded.

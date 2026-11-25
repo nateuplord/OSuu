@@ -1,4 +1,5 @@
 #include "text/framebuffer.h"
+#include "cpu/portio.h"
 #include "memory/paging.h"
 // #include "stdlib/string.h"
 #include <stdbool.h>
@@ -194,6 +195,98 @@ void framebuffer_init(struct VbeModeInfo *info) {
         void *addr = (void *) (fb_base + i * FRAME_SIZE);
         pg_update_entry(pg_get_cur_addr(), addr, addr, mmio_flags);
     }
+
+    framebuffer_save_default_palette();
+}
+
+/* --- Palette (VGA DAC) --- */
+
+#define VGA_DAC_READ_INDEX 0x3C7
+#define VGA_DAC_WRITE_INDEX 0x3C8
+#define VGA_DAC_DATA 0x3C9
+
+/// DAC contents at boot, as raw 6-bit values. Text colours are palette
+/// indices, so this is what makes the shell look right again after a game
+/// reprograms the palette.
+static uint8_t default_palette[FRAMEBUFFER_PALETTE_BYTES];
+static bool default_palette_saved = false;
+
+void framebuffer_save_default_palette(void) {
+    out(VGA_DAC_READ_INDEX, 0);
+    for (uint32_t i = 0; i < FRAMEBUFFER_PALETTE_BYTES; ++i) {
+        default_palette[i] = in(VGA_DAC_DATA) & 0x3F;
+    }
+    default_palette_saved = true;
+}
+
+void framebuffer_set_palette(const uint8_t *rgb) {
+    out(VGA_DAC_WRITE_INDEX, 0);
+    for (uint32_t i = 0; i < FRAMEBUFFER_PALETTE_BYTES; ++i) {
+        out(VGA_DAC_DATA, rgb[i] >> 2); // 8-bit component -> 6-bit DAC
+    }
+}
+
+void framebuffer_restore_palette(void) {
+    if (!default_palette_saved) {
+        return;
+    }
+    out(VGA_DAC_WRITE_INDEX, 0);
+    for (uint32_t i = 0; i < FRAMEBUFFER_PALETTE_BYTES; ++i) {
+        out(VGA_DAC_DATA, default_palette[i]);
+    }
+}
+
+/* --- Blit --- */
+
+bool framebuffer_blit(const uint8_t *buf, uint32_t width, uint32_t height) {
+    if (width == 0 || height == 0 || width > fb_width || height > fb_height) {
+        return false;
+    }
+
+    uint32_t x0 = (fb_width - width) / 2;
+    uint32_t y0 = (fb_height - height) / 2;
+    for (uint32_t row = 0; row < height; ++row) {
+        const uint8_t *src = buf + row * width;
+        volatile uint8_t *dst = fb_addr + (y0 + row) * fb_pitch + x0;
+
+        // Word copies where both sides line up - a 640x400 frame is 256 KB,
+        // so this is the hot path of every game frame.
+        uint32_t col = 0;
+        if ((((uint32_t) src | (uint32_t) dst) & 3) == 0) {
+            for (; col + 4 <= width; col += 4) {
+                *(volatile uint32_t *) (dst + col) =
+                    *(const uint32_t *) (src + col);
+            }
+        }
+        for (; col < width; ++col) {
+            dst[col] = src[col];
+        }
+    }
+    return true;
+}
+
+/* --- Screen ownership --- */
+
+static uint32_t screen_owner_pid = 0;
+
+bool framebuffer_claim(uint32_t pid) {
+    if (pid == 0 || (screen_owner_pid != 0 && screen_owner_pid != pid)) {
+        return false;
+    }
+    screen_owner_pid = pid;
+    return true;
+}
+
+void framebuffer_release(uint32_t pid) {
+    if (pid == 0 || screen_owner_pid != pid) {
+        return;
+    }
+    screen_owner_pid = 0;
+    framebuffer_restore_palette();
+}
+
+uint32_t framebuffer_get_owner(void) {
+    return screen_owner_pid;
 }
 
 void framebuffer_get_mmio_dir_range(

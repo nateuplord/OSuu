@@ -273,6 +273,16 @@ bool map_region(void *start, uint32_t size) {
     return ok != 0;
 }
 
+bool video_set_palette(const uint8_t *rgb) {
+    int32_t ok = 0;
+    syscall(SYSCALL_VIDEO_SET_PALETTE, (uint32_t) rgb, (uint32_t) &ok, 0);
+    return ok != 0;
+}
+
+void video_blit(const uint8_t *buf, uint32_t width, uint32_t height) {
+    syscall(SYSCALL_VIDEO_BLIT, (uint32_t) buf, width, height);
+}
+
 bool raw_keyboard_poll(struct KeyEvent *out) {
     int32_t ok = 0;
     syscall(SYSCALL_KEYBOARD_GET_EVENT, (uint32_t) out, (uint32_t) &ok, 0);

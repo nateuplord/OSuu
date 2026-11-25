@@ -81,6 +81,52 @@ void putpixel(
  * GUI programs through SYSCALL_GUI_FILL_RECT so a whole cell can be drawn
  * with one syscall instead of one syscall per pixel.
  */
+/// 256 palette entries x (R, G, B)
+#define FRAMEBUFFER_PALETTE_BYTES 768
+
+/**
+ * Read the VGA DAC's current 256-colour palette and keep it as the default.
+ * Called once from framebuffer_init(), before anything reprograms the DAC.
+ */
+void framebuffer_save_default_palette(void);
+
+/**
+ * Program all 256 palette entries.
+ *
+ * @param rgb FRAMEBUFFER_PALETTE_BYTES bytes: R, G, B per entry, 8 bits each
+ *            (scaled down to the DAC's 6 bits). Backs SYSCALL_VIDEO_SET_PALETTE.
+ */
+void framebuffer_set_palette(const uint8_t *rgb);
+
+/// Put back the palette saved by framebuffer_save_default_palette().
+void framebuffer_restore_palette(void);
+
+/**
+ * Copy a `width` x `height` 8bpp image to the centre of the screen.
+ * Backs SYSCALL_VIDEO_BLIT.
+ *
+ * @return false (nothing drawn) if either side is 0 or larger than the screen
+ */
+bool framebuffer_blit(const uint8_t *buf, uint32_t width, uint32_t height);
+
+/**
+ * Claim the screen for process `pid` (a full-screen program such as a game).
+ * Only the owner may change the palette or blit. Claimed and released
+ * together with raw keyboard mode (SYSCALL_KEYBOARD_SET_RAW).
+ *
+ * @return false if another process already owns the screen
+ */
+bool framebuffer_claim(uint32_t pid);
+
+/**
+ * Release the screen if `pid` owns it, restoring the default palette so text
+ * is readable again. Also called from process teardown.
+ */
+void framebuffer_release(uint32_t pid);
+
+/// pid owning the screen, or 0 if nobody does
+uint32_t framebuffer_get_owner(void);
+
 void framebuffer_fill_rect(
     uint16_t x,
     uint16_t y,

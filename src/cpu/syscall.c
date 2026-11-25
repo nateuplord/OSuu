@@ -11,7 +11,49 @@
 #include "text/framebuffer.h"
 #include <stdint.h>
 
+/**
+ * True if `[addr, addr + len)` lies wholly in user space. Bulk-copy syscalls
+ * (palette, blit) check this so a process can't point the kernel at kernel
+ * memory and have it copied to the screen.
+ */
+static bool user_range_ok(uint32_t addr, uint32_t len) {
+    return addr + len >= addr && addr + len <= KERNEL_VIRTUAL_ADDRESS_BASE;
+}
+
+/**
+ * Syscalls that draw on the shared text/graphics screen. While a process owns
+ * the screen (full-screen mode via KEYBOARD_SET_RAW), these are dropped for
+ * every *other* process - e.g. the background clock - so nothing scribbles
+ * over the owner's frame. Dropped, not queued: background drawers redraw on
+ * their own schedule, and the clock catches up within a second of release.
+ * Kernel-internal drawing isn't affected; only this syscall path is gated.
+ */
+static bool syscall_draws_on_screen(uint32_t number) {
+    switch (number) {
+        case SYSCALL_TEXT_PUTCHAR:
+        case SYSCALL_TEXT_PUTS:
+        case SYSCALL_TEXT_WRITE_AT:
+        case SYSCALL_TEXT_SET_CURSOR:
+        case SYSCALL_TEXT_SCROLL_UP:
+        case SYSCALL_TEXT_CLEAR:
+        case SYSCALL_GUI_FILL_RECT:
+        case SYSCALL_PLAY_BADAPPLE:
+            return true;
+        default:
+            return false;
+    }
+}
+
 void syscall(struct InterruptFrame frame) {
+    uint32_t screen_owner = framebuffer_get_owner();
+    if (screen_owner != 0 && syscall_draws_on_screen(frame.cpu.general.eax)) {
+        struct ProcessControlBlock *caller =
+            process_get_current_running_pcb_pointer();
+        if (caller == NULL || caller->metadata.pid != screen_owner) {
+            return;
+        }
+    }
+
     switch (frame.cpu.general.eax) {
         case SYSCALL_FS_READ:
             // read() takes its request by value - dereference ebx's pointer.
@@ -258,9 +300,57 @@ void syscall(struct InterruptFrame frame) {
             struct ProcessControlBlock *pcb =
                 process_get_current_running_pcb_pointer();
             uint32_t pid = pcb == NULL ? 0 : pcb->metadata.pid;
-            bool ok = pid != 0 && keyboard_set_raw(frame.cpu.general.ebx != 0, pid);
+            // Raw mode = full-screen mode: the keyboard and the screen are
+            // taken (and given back) together, all or nothing.
+            bool ok = false;
+            if (pid != 0 && frame.cpu.general.ebx != 0) {
+                if (framebuffer_claim(pid)) {
+                    ok = keyboard_set_raw(true, pid);
+                    if (!ok) {
+                        framebuffer_release(pid);
+                    }
+                }
+            } else if (pid != 0) {
+                ok = keyboard_set_raw(false, pid);
+                framebuffer_release(pid); // also restores the palette
+            }
             if (frame.cpu.general.ecx != 0) {
                 *(int32_t *) frame.cpu.general.ecx = ok ? 1 : 0;
+            }
+            break;
+        }
+
+        case SYSCALL_VIDEO_SET_PALETTE: {
+            // ebx = const uint8_t rgb[768], ecx = int32_t *ok
+            struct ProcessControlBlock *pcb =
+                process_get_current_running_pcb_pointer();
+            uint32_t pid = pcb == NULL ? 0 : pcb->metadata.pid;
+            uint32_t rgb = frame.cpu.general.ebx;
+            bool ok = pid != 0 && framebuffer_get_owner() == pid &&
+                      user_range_ok(rgb, FRAMEBUFFER_PALETTE_BYTES);
+            if (ok) {
+                framebuffer_set_palette((const uint8_t *) rgb);
+            }
+            if (frame.cpu.general.ecx != 0) {
+                *(int32_t *) frame.cpu.general.ecx = ok ? 1 : 0;
+            }
+            break;
+        }
+
+        case SYSCALL_VIDEO_BLIT: {
+            // ebx = const uint8_t *buf, ecx = width, edx = height
+            struct ProcessControlBlock *pcb =
+                process_get_current_running_pcb_pointer();
+            uint32_t pid = pcb == NULL ? 0 : pcb->metadata.pid;
+            uint32_t buf = frame.cpu.general.ebx;
+            uint32_t width = frame.cpu.general.ecx;
+            uint32_t height = frame.cpu.general.edx;
+            // Width/height are bounded by framebuffer_blit(); check them
+            // first so width * height can't overflow the range check.
+            if (pid != 0 && framebuffer_get_owner() == pid &&
+                width <= 4096 && height <= 4096 &&
+                user_range_ok(buf, width * height)) {
+                framebuffer_blit((const uint8_t *) buf, width, height);
             }
             break;
         }

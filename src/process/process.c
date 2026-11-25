@@ -1,6 +1,7 @@
 #include "process/process.h"
 #include "cpu/gdt.h"
 #include "driver/keyboard.h"
+#include "text/framebuffer.h"
 #include "memory/paging.h"
 #include "memory/swap.h"
 #include "process/scheduler.h"
@@ -478,6 +479,7 @@ bool process_destroy(uint32_t pid) {
     // A process killed (or crashing) in raw keyboard mode would otherwise
     // leave every other process deaf to the keyboard.
     keyboard_release_raw_owner(pid);
+    framebuffer_release(pid); // and its palette, so the shell is readable
 
     struct PgDir *page_dir =
         (struct PgDir *) pcb->context.page_directory_virtual_addr;
