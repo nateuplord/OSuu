@@ -15,7 +15,7 @@
 #include <stdint.h>
 
 #define BLOCK_SIZE 512
-#define DISK_SPACE 4194304u
+#define DISK_SPACE 16777216u // must match header/fs/ext2.h
 
 #define EXT2_S_IFDIR 0x4000
 #define EXT2_FT_DIR 2

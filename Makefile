@@ -120,8 +120,11 @@ iso: kernel
 # Disk image and host-side inserter
 # ============================================================
 
+# 16 MiB of ext2 (DISK_SPACE in header/fs/ext2.h) followed by the swap area
+# (header/memory/swap.h, 10 x 4 KiB slots); 17M leaves room for both.
+# Changing DISK_SPACE means recreating the image: rm bin/storage.bin && make disk
 disk:
-	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 5M
+	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 17M
 
 HOST_CC     := gcc
 HOST_CFLAGS := -std=c11 -Wall -Wextra -g \

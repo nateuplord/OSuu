@@ -983,7 +983,7 @@ static int resolve_shell_file(
         entry_is_directory || (node.i_mode & EXT2_S_IFDIR) != 0;
     file->size = node.i_size;
     // Bounded by shell_file_buffer's actual size (USER_FILE_BUFFER_SIZE),
-    // not the real 4 MiB disk - the ported shell's buffer is deliberately
+    // not the real 16 MiB disk - the ported shell's buffer is deliberately
     // much smaller than the kernel version's DISK_SPACE-sized one.
     if (file->size > USER_FILE_BUFFER_SIZE)
         return -1;

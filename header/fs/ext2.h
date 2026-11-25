@@ -13,7 +13,7 @@
 #define BOOT_SECTOR 0
 
 /// 4MB disk space (because our disk or storage.bin is 4MB)
-#define DISK_SPACE 4194304u
+#define DISK_SPACE 16777216u // 16 MiB - the hard ceiling, see below
 
 /// this indicating that the filesystem used by OS is ext2
 #define EXT2_SUPER_MAGIC 0xEF53
@@ -29,6 +29,8 @@
 
 /// number of blocks per group
 #define BLOCKS_PER_GROUP (DISK_SPACE / BLOCK_SIZE / GROUPS_COUNT)
+// Max 16 MiB: each group's block bitmap is one block - see the
+// _Static_assert in src/fs/ext2.c.
 #define INODES_TABLE_BLOCK_COUNT 16u
 
 /// number of inodes per group

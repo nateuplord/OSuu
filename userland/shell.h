@@ -21,8 +21,8 @@
 #define SHELL_PATH_DEPTH_MAX 32
 #define SHELL_PATH_SEGMENT_MAX 64
 
-// Replaces DISK_SPACE (4 MiB) as the cap for shell_file_buffer specifically -
-// DISK_SPACE itself (from fs_types.h) stays the real 4 MiB disk size.
+// Replaces DISK_SPACE (16 MiB) as the cap for shell_file_buffer specifically -
+// DISK_SPACE itself (from fs_types.h) stays the real disk size.
 #define USER_FILE_BUFFER_SIZE 65536u
 
 typedef struct {

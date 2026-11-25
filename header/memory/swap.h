@@ -2,12 +2,17 @@
 #define _SWAP_H
 
 #include "driver/disk.h"
+#include "fs/ext2.h"
 #include "memory/paging.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#define SWAP_PARTITION_START_LBA 8192 // Start of swap sector based on 5MiB
+// Swap lives right after the ext2 filesystem on the same disk image, so it
+// must move whenever DISK_SPACE does - a fixed LBA here would put the swap
+// slots inside the filesystem once it grows. Each slot is one 4 KiB page
+// (8 sectors); the Makefile's `disk` target sizes the image to fit both.
+#define SWAP_PARTITION_START_LBA (DISK_SPACE / BLOCK_SIZE)
 
 #define PAGE_FRAME_ON_SWAP_MAX_COUNT                                           \
     10 //can be changed to be as many as you want.

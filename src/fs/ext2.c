@@ -5,6 +5,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Each group's block bitmap is exactly one block (BLOCK_SIZE * 8 bits), and
+// this driver always reads/writes just that one block. More blocks per group
+// than bits would alias in the bitmap and corrupt free-space tracking, which
+// caps DISK_SPACE at 4096 bits * 8 groups * 512 B = 16 MiB.
+_Static_assert(
+    BLOCKS_PER_GROUP <= BLOCK_SIZE * 8u,
+    "DISK_SPACE too large: a group's block bitmap must fit in one block"
+);
+
 const uint8_t fs_signature[BLOCK_SIZE] = "osu! is an open "
                                          "source rhythm   "
                                          "game originally "

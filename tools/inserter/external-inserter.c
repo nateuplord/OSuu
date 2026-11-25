@@ -134,7 +134,10 @@ int main(
     
     if (fread(image_storage, DISK_SPACE, 1, disk_file) != 1) {
         fprintf(
-            stderr, "inserter: storage must be at least %u bytes\n", DISK_SPACE
+            stderr,
+            "inserter: %s is smaller than DISK_SPACE (%u bytes).\n"
+            "          Recreate it: rm %s && make disk\n",
+            storage_path, DISK_SPACE, storage_path
         );
         goto cleanup;
     }
@@ -164,6 +167,28 @@ int main(
     }
 
     initialize_filesystem_ext2();
+
+    // Block/inode table offsets are fixed when the disk is formatted, from
+    // DISK_SPACE. A disk formatted under a different DISK_SPACE still has a
+    // valid signature but a different layout - writing into it would corrupt
+    // it silently, so refuse and say how to fix it.
+    {
+        struct BlockBuffer sb_buf;
+        read_blocks(&sb_buf, 1, 1);
+        const struct EXT2Superblock *sb = (const struct EXT2Superblock *) sb_buf.buf;
+        uint32_t expected_blocks = GROUPS_COUNT * BLOCKS_PER_GROUP;
+        if (sb->s_magic != EXT2_SUPER_MAGIC || sb->s_blocks_count != expected_blocks) {
+            fprintf(
+                stderr,
+                "inserter: %s was formatted for a different disk size "
+                "(%u blocks, expected %u for DISK_SPACE=%u).\n"
+                "          Recreate it: rm %s && make disk\n",
+                storage_path, sb->s_blocks_count, expected_blocks, DISK_SPACE,
+                storage_path
+            );
+            goto cleanup;
+        }
+    }
 
     struct EXT2DriverRequest request = {
         .buf = file_buffer,
