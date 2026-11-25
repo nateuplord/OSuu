@@ -66,19 +66,23 @@ static inline void syscall(
     uint32_t ecx,
     uint32_t edx
 ) {
-    __asm__ volatile("mov %0, %%ebx"
+    // One asm statement with the registers as operands, not four separate
+    // `mov`s into hard-coded registers. The old form never told gcc that
+    // eax/ebx/ecx/edx were overwritten (ebx is callee-saved in the i386 ABI),
+    // nor that the kernel writes through the pointers it's given - so
+    // optimised callers could keep a live value in ebx across a syscall and
+    // read back garbage, and one argument could be clobbered by loading
+    // another. It only stayed hidden because userland was built at -O0;
+    // Doom (-Os) lost a FILE's size across read() because of it.
+    //
+    // "+" (in/out): the kernel's iret restores these from its saved frame,
+    // but treating them as modified costs nothing and assumes nothing.
+    // "memory": results come back through pointers (the kernel writes user
+    // memory), so gcc must not cache memory values across the call.
+    __asm__ volatile("int $0x30"
+                     : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx)
                      : /* <Empty> */
-                     : "r"(ebx));
-    __asm__ volatile("mov %0, %%ecx"
-                     : /* <Empty> */
-                     : "r"(ecx));
-    __asm__ volatile("mov %0, %%edx"
-                     : /* <Empty> */
-                     : "r"(edx));
-    __asm__ volatile("mov %0, %%eax"
-                     : /* <Empty> */
-                     : "r"(eax));
-    __asm__ volatile("int $0x30");
+                     : "memory");
 }
 
 #endif
