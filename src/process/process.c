@@ -1,5 +1,6 @@
 #include "process/process.h"
 #include "cpu/gdt.h"
+#include "driver/keyboard.h"
 #include "memory/paging.h"
 #include "process/scheduler.h"
 #include "stdlib/string.h"
@@ -416,6 +417,10 @@ bool process_destroy(uint32_t pid) {
 
     struct ProcessControlBlock *pcb = &_process_list[index];
     scheduler_unregister_process(pcb);
+
+    // A process killed (or crashing) in raw keyboard mode would otherwise
+    // leave every other process deaf to the keyboard.
+    keyboard_release_raw_owner(pid);
 
     struct PgDir *page_dir =
         (struct PgDir *) pcb->context.page_directory_virtual_addr;

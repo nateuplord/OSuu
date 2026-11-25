@@ -8,6 +8,7 @@
  */
 
 #include "driver/cmos.h"
+#include "driver/key_event.h"
 #include "driver/pit.h"
 #include "fs_types.h"
 #include "gui/gui.h"
@@ -134,5 +135,25 @@ uint32_t get_ticks_ms(void);
  * milliseconds have passed. Rounds up to the 10 ms PIT resolution.
  */
 void sleep_ms(uint32_t ms);
+
+/**
+ * Raw keyboard mode - backed by int 0x30 services 30-31.
+ *
+ * While on, every key press AND release (modifiers included) is queued as a
+ * KeyEvent for this process, and nothing reaches the ASCII path, so the shell
+ * blocked in GETCHAR stays asleep. Only one process can hold it at a time;
+ * it's released automatically if the holder exits or is killed.
+ *
+ * @return true if raw mode was switched (false: another process holds it)
+ */
+bool raw_keyboard_enable(bool on);
+
+/**
+ * Pop the oldest queued key event. Never blocks.
+ *
+ * @return true if `out` was filled, false if the queue is empty (or this
+ *         process doesn't hold raw mode)
+ */
+bool raw_keyboard_poll(struct KeyEvent *out);
 
 #endif

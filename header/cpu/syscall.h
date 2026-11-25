@@ -53,6 +53,8 @@
 #define SYSCALL_KEYBOARD_POLL 27
 #define SYSCALL_GUI_FILL_RECT 28
 #define SYSCALL_PIT_TICKS 29
+#define SYSCALL_KEYBOARD_GET_EVENT 30
+#define SYSCALL_KEYBOARD_SET_RAW 31
 
 /**
  * Dispatches a syscall based on the trapped CPU state's eax/ebx/ecx/edx.

@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include "driver/key_event.h"
 // #include "cpu/interrupt.h"
 
 #define EXT_SCANCODE_UP 0x48
@@ -80,6 +82,41 @@ void keyboard_state_deactivate(void);
  * Pointer to character buffer
  */
 void get_keyboard_buffer(char *buf);
+
+/* Raw mode - press/release events instead of ASCII */
+
+/// Number of queued KeyEvents; events arriving while it's full are dropped.
+#define KEYBOARD_EVENT_RING_SIZE 64
+
+/**
+ * Turn raw mode on or off on behalf of process `pid`.
+ *
+ * @details
+ * While raw mode is on, every scancode is queued as a KeyEvent and the ASCII
+ * buffer is left untouched, so processes blocked in GETCHAR (the shell) stay
+ * asleep instead of receiving the raw-mode process's keystrokes. Only one
+ * process may hold raw mode; turning it off is only honoured for that owner.
+ * Turning it on clears any stale events; turning it off resets Shift/Ctrl
+ * state so a modifier held at that moment doesn't stick.
+ *
+ * @return true if the change was applied
+ */
+bool keyboard_set_raw(bool raw, uint32_t pid);
+
+/**
+ * Pop the oldest queued event for raw-mode owner `pid`. Never blocks.
+ *
+ * @return true if an event was written to `out`, false if the queue was
+ *         empty or `pid` doesn't own raw mode
+ */
+bool keyboard_pop_event(struct KeyEvent *out, uint32_t pid);
+
+/**
+ * Release raw mode if `pid` holds it. Called from process teardown so a
+ * process that dies (or is killed) in raw mode doesn't leave the keyboard
+ * dead for everyone else.
+ */
+void keyboard_release_raw_owner(uint32_t pid);
 
 /* Keyboard Interrupt Service Routine */
 

@@ -231,6 +231,29 @@ void syscall(struct InterruptFrame frame) {
             *(uint32_t *) frame.cpu.general.ebx = pit_get_ticks();
             break;
 
+        case SYSCALL_KEYBOARD_GET_EVENT: {
+            // ebx = struct KeyEvent *out, ecx = int32_t *ok (1 = popped)
+            struct ProcessControlBlock *pcb =
+                process_get_current_running_pcb_pointer();
+            uint32_t pid = pcb == NULL ? 0 : pcb->metadata.pid;
+            *(int32_t *) frame.cpu.general.ecx = keyboard_pop_event(
+                (struct KeyEvent *) frame.cpu.general.ebx, pid
+            ) ? 1 : 0;
+            break;
+        }
+
+        case SYSCALL_KEYBOARD_SET_RAW: {
+            // ebx = bool raw, ecx = int32_t *ok (1 = applied)
+            struct ProcessControlBlock *pcb =
+                process_get_current_running_pcb_pointer();
+            uint32_t pid = pcb == NULL ? 0 : pcb->metadata.pid;
+            bool ok = pid != 0 && keyboard_set_raw(frame.cpu.general.ebx != 0, pid);
+            if (frame.cpu.general.ecx != 0) {
+                *(int32_t *) frame.cpu.general.ecx = ok ? 1 : 0;
+            }
+            break;
+        }
+
         default:
             break;
     }

@@ -54,8 +54,8 @@ OBJS := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
 
 .PHONY: run test-sample debug clean build kernel iso disk \
 	inserter \
-	user-shell user-clock user-snake \
-	insert-shell insert-clock insert-snake insert-userland insert-badapple
+	user-shell user-clock user-snake user-keytest \
+	insert-shell insert-clock insert-snake insert-keytest insert-userland insert-badapple
 
 # ============================================================
 # QEMU
@@ -149,11 +149,13 @@ $(INSERTER_BIN): $(INSERTER_SRC)
 USER_BIN       := $(OUTPUT_FOLDER)/userprog/shell
 USER_CLOCK_BIN := $(OUTPUT_FOLDER)/userprog/clock
 USER_SNAKE_BIN := $(OUTPUT_FOLDER)/userprog/snake
+USER_KEYTEST_BIN := $(OUTPUT_FOLDER)/userprog/keytest
 
 USER_SHARED_SRC := $(USER_FOLDER)/kernel_api.c $(USER_FOLDER)/string.c
 USER_SHELL_SRC  := $(USER_FOLDER)/shell.c $(USER_FOLDER)/user-shell.c
 USER_CLOCK_SRC  := $(USER_FOLDER)/clock.c
 USER_SNAKE_SRC  := $(USER_FOLDER)/snake.c
+USER_KEYTEST_SRC := $(USER_FOLDER)/keytest.c
 
 USER_SHARED_OBJS := $(USER_SHARED_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
 USER_SHELL_OBJS  := $(USER_SHARED_OBJS) $(OUTPUT_FOLDER)/userprog/crt0.o \
@@ -162,10 +164,13 @@ USER_CLOCK_OBJS  := $(USER_SHARED_OBJS) $(OUTPUT_FOLDER)/userprog/crt0.o \
 	$(USER_CLOCK_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
 USER_SNAKE_OBJS  := $(USER_SHARED_OBJS) $(OUTPUT_FOLDER)/userprog/crt0.o \
 	$(USER_SNAKE_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
+USER_KEYTEST_OBJS := $(USER_SHARED_OBJS) $(OUTPUT_FOLDER)/userprog/crt0.o \
+	$(USER_KEYTEST_SRC:$(USER_FOLDER)/%.c=$(OUTPUT_FOLDER)/userprog/%.o)
 
 user-shell: $(USER_BIN)
 user-clock: $(USER_CLOCK_BIN)
 user-snake: $(USER_SNAKE_BIN)
+user-keytest: $(USER_KEYTEST_BIN)
 
 $(OUTPUT_FOLDER)/userprog/%.o: $(USER_FOLDER)/%.c
 	@mkdir -p $(dir $@)
@@ -190,6 +195,11 @@ $(USER_SNAKE_BIN): $(USER_SNAKE_OBJS) $(USER_FOLDER)/linker.ld
 	@echo Linking snake flat binary...
 	@size --target=binary $@
 
+$(USER_KEYTEST_BIN): $(USER_KEYTEST_OBJS) $(USER_FOLDER)/linker.ld
+	@$(LINK) $(USER_LINK_FLAGS) $(USER_KEYTEST_OBJS) -o $@
+	@echo Linking keytest flat binary...
+	@size --target=binary $@
+
 # ============================================================
 # Insert user programs / assets into the ext2 root directory
 # ============================================================
@@ -209,13 +219,19 @@ insert-snake: $(USER_SNAKE_BIN) inserter
 	@echo Inserting snake into root directory...
 	@$(INSERT_USER) snake 1 ../$(DISK_NAME).bin
 
-insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) inserter insert-badapple
+insert-keytest: $(USER_KEYTEST_BIN) inserter
+	@echo Inserting keytest into root directory...
+	@$(INSERT_USER) keytest 1 ../$(DISK_NAME).bin
+
+insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) $(USER_KEYTEST_BIN) inserter insert-badapple
 	@echo Inserting shell into root directory...
 	@$(INSERT_USER) shell 1 ../$(DISK_NAME).bin
 	@echo Inserting clock into root directory...
 	@$(INSERT_USER) clock 1 ../$(DISK_NAME).bin
 	@echo Inserting snake into root directory...
 	@$(INSERT_USER) snake 1 ../$(DISK_NAME).bin
+	@echo Inserting keytest into root directory...
+	@$(INSERT_USER) keytest 1 ../$(DISK_NAME).bin
 
 # badapple reads these from the root directory at runtime.
 insert-badapple: inserter misc/palette.bin misc/frames.bin

@@ -80,8 +80,108 @@ void get_keyboard_buffer(char *buf) {
     keyboard_state.keyboard_buffer = 0;
 }
 
+/* --- Raw mode --- */
+
+/// pid owning raw mode, 0 = raw mode off
+static uint32_t raw_owner_pid = 0;
+
+/// Single-producer (ISR) / single-consumer (owner's syscall) ring. head is
+/// only written by the ISR, tail only by keyboard_pop_event(); with one slot
+/// kept empty, head == tail means empty.
+static struct KeyEvent event_ring[KEYBOARD_EVENT_RING_SIZE];
+static volatile uint32_t event_head = 0;
+static volatile uint32_t event_tail = 0;
+
+/// Bytes still to swallow from a Pause/Break (0xE1 ...) sequence - it is the
+/// only multi-byte make code and would otherwise decode as a bogus Ctrl+NumLock.
+static uint8_t pause_bytes_left = 0;
+
+static void push_event(uint8_t raw_byte, bool extended) {
+    uint32_t next = (event_head + 1) % KEYBOARD_EVENT_RING_SIZE;
+    if (next == event_tail) {
+        return; // full - drop rather than overwrite unread events
+    }
+    event_ring[event_head] = (struct KeyEvent) {
+        .scancode = raw_byte & 0x7F,
+        .extended = extended ? 1 : 0,
+        .pressed = (raw_byte & 0x80) ? 0 : 1,
+    };
+    event_head = next;
+}
+
+bool keyboard_set_raw(bool raw, uint32_t pid) {
+    if (raw) {
+        if (raw_owner_pid != 0 && raw_owner_pid != pid) {
+            return false; // someone else already has it
+        }
+        event_head = event_tail = 0;
+        keyboard_state.read_extended_mode = false;
+        pause_bytes_left = 0;
+        raw_owner_pid = pid;
+        return true;
+    }
+
+    if (raw_owner_pid != pid) {
+        return false;
+    }
+    raw_owner_pid = 0;
+    keyboard_state.shift_pressed = false;
+    keyboard_state.ctrl_pressed = false;
+    keyboard_state.read_extended_mode = false;
+    keyboard_state.keyboard_buffer = 0;
+    return true;
+}
+
+bool keyboard_pop_event(struct KeyEvent *out, uint32_t pid) {
+    if (raw_owner_pid == 0 || raw_owner_pid != pid || event_tail == event_head) {
+        return false;
+    }
+    *out = event_ring[event_tail];
+    event_tail = (event_tail + 1) % KEYBOARD_EVENT_RING_SIZE;
+    return true;
+}
+
+void keyboard_release_raw_owner(uint32_t pid) {
+    if (raw_owner_pid != 0 && raw_owner_pid == pid) {
+        keyboard_set_raw(false, pid);
+    }
+}
+
+/// Raw-mode half of the ISR: queue the byte as an event and skip the ASCII path.
+static void keyboard_isr_raw(uint8_t scancode) {
+    if (pause_bytes_left > 0) {
+        pause_bytes_left--;
+        return;
+    }
+    if (scancode == 0xE1) {
+        pause_bytes_left = 5; // E1 1D 45 E1 9D C5
+        return;
+    }
+    if (scancode == EXTENDED_SCANCODE_BYTE) {
+        keyboard_state.read_extended_mode = true;
+        return;
+    }
+
+    bool extended = keyboard_state.read_extended_mode;
+    keyboard_state.read_extended_mode = false;
+
+    // 0xE0 0x2A / 0xE0 0xAA are "fake shift" bytes some keyboards wrap around
+    // arrow/Home/End keys - not real keys, don't report them.
+    if (extended && (scancode & 0x7F) == EXT_SCANCODE_SHIFT_LEFT) {
+        return;
+    }
+
+    push_event(scancode, extended);
+}
+
 void keyboard_isr(void) {
     uint8_t scancode = in(KEYBOARD_DATA_PORT);
+
+    if (raw_owner_pid != 0) {
+        keyboard_isr_raw(scancode);
+        pic_ack(IRQ_KEYBOARD);
+        return;
+    }
 
     if (scancode == EXTENDED_SCANCODE_BYTE) {
         keyboard_state.read_extended_mode = true;

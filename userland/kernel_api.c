@@ -258,3 +258,15 @@ void sleep_ms(uint32_t ms) {
         yield();
     }
 }
+
+bool raw_keyboard_enable(bool on) {
+    int32_t ok = 0;
+    syscall(SYSCALL_KEYBOARD_SET_RAW, on ? 1 : 0, (uint32_t) &ok, 0);
+    return ok != 0;
+}
+
+bool raw_keyboard_poll(struct KeyEvent *out) {
+    int32_t ok = 0;
+    syscall(SYSCALL_KEYBOARD_GET_EVENT, (uint32_t) out, (uint32_t) &ok, 0);
+    return ok != 0;
+}
