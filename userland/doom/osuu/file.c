@@ -95,6 +95,10 @@ static int ensure_loaded(struct OsuuFile *f) {
         capacity = FILE_BLOCK_SIZE;
     uint8_t *data = malloc(capacity);
     if (!data) {
+        // Callers like W_AddFile don't check read lengths and misreport a
+        // failed load (e.g. "doesn't have IWAD or PWAD id") - say why here.
+        fprintf(stderr, "osuu: out of memory loading %s (%u bytes)\n",
+                f->name, (unsigned) capacity);
         f->error = 1;
         errno = ENOMEM;
         return 0;
@@ -108,7 +112,12 @@ static int ensure_loaded(struct OsuuFile *f) {
         .buffer_size = capacity,
         .is_directory = false,
     };
-    if (read(request) != 0) {
+    int8_t status = read(request);
+    if (status != 0) {
+        fprintf(stderr, "osuu: reading %s failed: ext2 read() returned %d "
+                        "(size %u, buffer %u at %p)\n",
+                f->name, status, (unsigned) f->size, (unsigned) capacity,
+                (void *) data);
         free(data);
         f->error = 1;
         errno = EIO;
