@@ -1,4 +1,4 @@
-![Credit: 朧月](assets/mascot.jpg)
+![Credit: @whusteryy on X](assets/pippi.jpg "Credit: @whusteryy on X")
 
 # Tugas Besar IF2130 Sistem Operasi - 2026/2027 | OSuu
 
