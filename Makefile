@@ -55,7 +55,7 @@ OBJS := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
 .PHONY: run test-sample debug clean build kernel iso disk \
 	inserter \
 	user-shell user-clock user-snake user-keytest user-memtest user-colortest \
-	insert-shell insert-clock insert-snake insert-keytest insert-memtest insert-colortest insert-userland insert-badapple
+	insert-shell insert-clock insert-snake insert-keytest insert-memtest insert-colortest insert-doom-wad insert-userland insert-badapple
 
 # ============================================================
 # QEMU
@@ -254,7 +254,7 @@ insert-colortest: $(USER_COLORTEST_BIN) inserter
 	@echo Inserting colortest into root directory...
 	@$(INSERT_USER) colortest 1 ../$(DISK_NAME).bin
 
-insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) $(USER_KEYTEST_BIN) $(USER_MEMTEST_BIN) $(USER_COLORTEST_BIN) inserter insert-badapple
+insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) $(USER_KEYTEST_BIN) $(USER_MEMTEST_BIN) $(USER_COLORTEST_BIN) inserter insert-badapple insert-doom-wad
 	@echo Inserting shell into root directory...
 	@$(INSERT_USER) shell 1 ../$(DISK_NAME).bin
 	@echo Inserting clock into root directory...
@@ -267,6 +267,18 @@ insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) $(USER_KEYTEST_
 	@$(INSERT_USER) memtest 1 ../$(DISK_NAME).bin
 	@echo Inserting colortest into root directory...
 	@$(INSERT_USER) colortest 1 ../$(DISK_NAME).bin
+
+# Doom's game data. Not in git (see misc/doom/README.md), so skip quietly
+# when it's absent - everything else still builds and runs without it.
+DOOM_WAD := misc/doom/doom1.wad
+
+insert-doom-wad: inserter
+	@if [ -f $(DOOM_WAD) ]; then \
+		echo Inserting doom1.wad into root directory...; \
+		cd misc/doom && ../../$(OUTPUT_FOLDER)/inserter -f doom1.wad 1 ../../$(OUTPUT_FOLDER)/$(DISK_NAME).bin; \
+	else \
+		echo "Skipping doom1.wad (not found - see misc/doom/README.md)"; \
+	fi
 
 # badapple reads these from the root directory at runtime.
 insert-badapple: inserter misc/palette.bin misc/frames.bin

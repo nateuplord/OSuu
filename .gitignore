@@ -7,3 +7,7 @@ compile_commands.json
 
 # Regenerable from the source video, see misc/README.md
 misc/bad-apple-frames/
+
+# Doom game data - not redistributed here, see misc/doom/README.md
+misc/doom/*.wad
+misc/doom/*.WAD
