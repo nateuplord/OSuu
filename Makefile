@@ -18,6 +18,7 @@ HEADER_FOLDER := header
 OUTPUT_FOLDER := bin
 BOOT_FOLDER   := boot
 USER_FOLDER   := userland
+USER_HEADERS  := $(USER_FOLDER)/header
 
 ISO_NAME  := OSuu
 DISK_NAME := storage
@@ -173,7 +174,7 @@ user-snake: $(USER_SNAKE_BIN)
 
 $(OUTPUT_FOLDER)/userprog/%.o: $(USER_FOLDER)/%.c
 	@mkdir -p $(dir $@)
-	@$(CC) $(C_FLAGS) -fno-pie $< -o $@
+	@$(CC) $(C_FLAGS) -I$(USER_HEADERS) -fno-pie $< -o $@
 
 $(OUTPUT_FOLDER)/userprog/crt0.o: $(USER_FOLDER)/crt0.s
 	@mkdir -p $(dir $@)
