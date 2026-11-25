@@ -865,10 +865,17 @@ void V_DrawMouseSpeedBox(int speed)
     // If the mouse is turned off or acceleration is turned off, don't
     // draw the box at all.
 
+#ifdef OSUU
+    // OSuu: no mouse, and the build has no floating point
+    // (-mgeneral-regs-only) - never draw the mouse speed box.
+    (void) usemouse;
+    return;
+#else
     if (!usemouse || fabs(mouse_acceleration - 1) < 0.01)
     {
         return;
     }
+#endif
 
     // Calculate box position
 

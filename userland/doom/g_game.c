@@ -2251,6 +2251,21 @@ boolean G_CheckDemoStatus (void)
 	 
     if (timingdemo) 
     { 
+#ifdef OSUU
+        // OSuu: same report in integer maths (no FPU in the build).
+        int realtics;
+
+	endtime = I_GetTime (); 
+        realtics = endtime - starttime;
+
+        // Prevent recursive calls
+        timingdemo = false;
+        demoplayback = false;
+
+	I_Error ("timed %i gametics in %i realtics (%i fps)",
+                 gametic, realtics,
+                 realtics ? gametic * TICRATE / realtics : 0);
+#else
         float fps;
         int realtics;
 
@@ -2264,6 +2279,7 @@ boolean G_CheckDemoStatus (void)
 
 	I_Error ("timed %i gametics in %i realtics (%f fps)",
                  gametic, realtics, fps);
+#endif
     } 
 	 
     if (demoplayback) 

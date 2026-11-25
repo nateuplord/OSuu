@@ -1696,7 +1696,13 @@ static void SaveDefaultCollection(default_collection_t *collection)
                 break;
 
             case DEFAULT_FLOAT:
+#ifdef OSUU
+                // OSuu: no float formatting (no FPU in the build), and the
+                // config file is never written anyway.
+                fprintf(f, "0");
+#else
                 fprintf(f, "%f", * (float *) defaults[i].location);
+#endif
                 break;
 
             case DEFAULT_STRING:
@@ -1763,7 +1769,13 @@ static void SetVariable(default_t *def, char *value)
             break;
 
         case DEFAULT_FLOAT:
+#ifdef OSUU
+            // OSuu: no FPU in the build; there's no config file to load
+            // floats from, so keep the compiled-in default.
+            (void) value;
+#else
             * (float *) def->location = (float) atof(value);
+#endif
             break;
     }
 }

@@ -54,8 +54,8 @@ OBJS := $(C_SRC:$(SOURCE_FOLDER)/%.c=$(OUTPUT_FOLDER)/%.o) \
 
 .PHONY: run test-sample debug clean build kernel iso disk \
 	inserter \
-	user-shell user-clock user-snake user-keytest user-memtest user-colortest \
-	insert-shell insert-clock insert-snake insert-keytest insert-memtest insert-colortest insert-doom-wad insert-userland insert-badapple
+	user-shell user-clock user-snake user-keytest user-memtest user-colortest user-doom \
+	insert-shell insert-clock insert-snake insert-keytest insert-memtest insert-colortest insert-doom insert-doom-wad insert-userland insert-badapple
 
 # ============================================================
 # QEMU
@@ -224,6 +224,65 @@ $(USER_COLORTEST_BIN): $(USER_COLORTEST_OBJS) $(USER_FOLDER)/linker.ld
 	@size --target=binary $@
 
 # ============================================================
+# Doom (doomgeneric, vendored in userland/doom/ - see its README)
+# ============================================================
+
+# Objects live in bin/doom/, which `clean` leaves alone: the engine is ~80
+# files and rarely changes, so `make run` shouldn't recompile it every time.
+# -MMD keeps header edits tracked. Remove bin/doom/ to force a full rebuild.
+DOOM_FOLDER   := $(USER_FOLDER)/doom
+DOOM_OBJ_DIR  := $(OUTPUT_FOLDER)/doom
+DOOM_BIN      := $(OUTPUT_FOLDER)/userprog/doom
+DOOM_LIBGCC   := $(shell $(CC) -m32 -print-libgcc-file-name)
+
+# -nostdinc: only gcc's freestanding headers (stdint, stdarg, limits, ...)
+# plus OSuu's minimal libc headers in osuu/include - no host glibc headers.
+# -mgeneral-regs-only: no FPU/SSE state, same as the rest of userland; the
+# engine's three float uses are patched out under #ifdef OSUU.
+DOOM_BASE_CFLAGS := -m32 -Os -ffreestanding -fno-pie -fno-stack-protector \
+	-mgeneral-regs-only -fno-asynchronous-unwind-tables -fno-omit-frame-pointer \
+	-nostdinc -isystem $(shell $(CC) -m32 -print-file-name=include) \
+	-I$(DOOM_FOLDER)/osuu/include -I$(DOOM_FOLDER) -I$(USER_FOLDER) -I$(HEADER_FOLDER) \
+	-DOSUU -DCMAP256 -MMD -MP -c
+# Upstream engine files: 1990s C, warnings aren't ours to fix.
+DOOM_ENGINE_CFLAGS := $(DOOM_BASE_CFLAGS) -w
+# OSuu's own files (libc shim + platform layer) are held to the usual bar.
+DOOM_OSUU_CFLAGS   := $(DOOM_BASE_CFLAGS) -Wall -Wextra -Werror \
+	-Wno-builtin-declaration-mismatch
+
+DOOM_OSUU_SRC   := $(DOOM_FOLDER)/doomgeneric_osuu.c $(wildcard $(DOOM_FOLDER)/osuu/*.c)
+DOOM_ENGINE_SRC := $(filter-out $(DOOM_FOLDER)/doomgeneric_osuu.c,$(wildcard $(DOOM_FOLDER)/*.c))
+DOOM_OBJS := $(DOOM_ENGINE_SRC:$(DOOM_FOLDER)/%.c=$(DOOM_OBJ_DIR)/%.o) \
+	$(DOOM_OSUU_SRC:$(DOOM_FOLDER)/%.c=$(DOOM_OBJ_DIR)/%.o)
+
+$(DOOM_OBJ_DIR)/osuu/%.o: $(DOOM_FOLDER)/osuu/%.c
+	@mkdir -p $(dir $@)
+	@$(CC) $(DOOM_OSUU_CFLAGS) $< -o $@
+
+$(DOOM_OBJ_DIR)/doomgeneric_osuu.o: $(DOOM_FOLDER)/doomgeneric_osuu.c
+	@mkdir -p $(dir $@)
+	@$(CC) $(DOOM_OSUU_CFLAGS) $< -o $@
+
+$(DOOM_OBJ_DIR)/%.o: $(DOOM_FOLDER)/%.c
+	@mkdir -p $(dir $@)
+	@$(CC) $(DOOM_ENGINE_CFLAGS) $< -o $@
+
+-include $(DOOM_OBJS:.o=.d)
+
+# crt0 first (the linker script puts its .text at 0x0), then kernel_api.o for
+# the syscall wrappers - NOT userland's string.o: the shim has its own mem*.
+# libgcc supplies 64-bit division (__divdi3 & co) for FixedDiv.
+$(DOOM_BIN): $(OUTPUT_FOLDER)/userprog/crt0.o $(OUTPUT_FOLDER)/userprog/kernel_api.o \
+		$(DOOM_OBJS) $(USER_FOLDER)/linker.ld
+	@mkdir -p $(dir $@)
+	@$(LINK) $(USER_LINK_FLAGS) $(OUTPUT_FOLDER)/userprog/crt0.o \
+		$(OUTPUT_FOLDER)/userprog/kernel_api.o $(DOOM_OBJS) $(DOOM_LIBGCC) -o $@
+	@echo Linking doom flat binary...
+	@size --target=binary $@
+
+user-doom: $(DOOM_BIN)
+
+# ============================================================
 # Insert user programs / assets into the ext2 root directory
 # ============================================================
 
@@ -250,11 +309,15 @@ insert-memtest: $(USER_MEMTEST_BIN) inserter
 	@echo Inserting memtest into root directory...
 	@$(INSERT_USER) memtest 1 ../$(DISK_NAME).bin
 
+insert-doom: $(DOOM_BIN) inserter
+	@echo Inserting doom into root directory...
+	@$(INSERT_USER) doom 1 ../$(DISK_NAME).bin
+
 insert-colortest: $(USER_COLORTEST_BIN) inserter
 	@echo Inserting colortest into root directory...
 	@$(INSERT_USER) colortest 1 ../$(DISK_NAME).bin
 
-insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) $(USER_KEYTEST_BIN) $(USER_MEMTEST_BIN) $(USER_COLORTEST_BIN) inserter insert-badapple insert-doom-wad
+insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) $(USER_KEYTEST_BIN) $(USER_MEMTEST_BIN) $(USER_COLORTEST_BIN) $(DOOM_BIN) inserter insert-badapple insert-doom-wad
 	@echo Inserting shell into root directory...
 	@$(INSERT_USER) shell 1 ../$(DISK_NAME).bin
 	@echo Inserting clock into root directory...
@@ -267,6 +330,8 @@ insert-userland: $(USER_BIN) $(USER_CLOCK_BIN) $(USER_SNAKE_BIN) $(USER_KEYTEST_
 	@$(INSERT_USER) memtest 1 ../$(DISK_NAME).bin
 	@echo Inserting colortest into root directory...
 	@$(INSERT_USER) colortest 1 ../$(DISK_NAME).bin
+	@echo Inserting doom into root directory...
+	@$(INSERT_USER) doom 1 ../$(DISK_NAME).bin
 
 # Doom's game data. Not in git (see misc/doom/README.md), so skip quietly
 # when it's absent - everything else still builds and runs without it.
