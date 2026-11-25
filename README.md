@@ -13,7 +13,7 @@ The bestest not yet rhythm OS
 - 13525065 / Christopher Hendrik Gunawan
 - 13525083 / Natanael Chris Fabian Santoso
 
-## Daftar Isi
+## Direktori Proyek
 
 ```
 root
