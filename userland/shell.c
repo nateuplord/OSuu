@@ -982,15 +982,19 @@ static int resolve_shell_file(
     file->is_directory =
         entry_is_directory || (node.i_mode & EXT2_S_IFDIR) != 0;
     file->size = node.i_size;
-    // Bounded by shell_file_buffer's actual size (USER_FILE_BUFFER_SIZE),
-    // not the real 16 MiB disk - the ported shell's buffer is deliberately
-    // much smaller than the kernel version's DISK_SPACE-sized one.
-    if (file->size > USER_FILE_BUFFER_SIZE)
-        return -1;
+    // No size limit here: resolving a path says nothing about whether the
+    // file fits shell_file_buffer. Commands that copy into the buffer check
+    // that in read_shell_file(); exec doesn't use the buffer at all (the
+    // kernel loads the program), so programs bigger than 64 KiB still run.
     return 0;
 }
 
 static int read_shell_file(const struct ShellFilePath *file) {
+    // shell_file_buffer is deliberately much smaller than the 16 MiB disk
+    // (USER_FILE_BUFFER_SIZE). 2 is ext2 read()'s "buffer too small" code,
+    // which print_read_error() reports as "File is too large".
+    if (file->size > USER_FILE_BUFFER_SIZE)
+        return 2;
     struct EXT2DriverRequest request = {
         .buf = shell_file_buffer,
         .name = (char *) file->name,
